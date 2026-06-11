@@ -1,0 +1,25 @@
+# Dependency directories (never commit node_modules)
+node_modules/
+
+# Production build outputs
+dist/
+/apps/demo-app/dist/
+
+# Local IDE configuration caches
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Log files and test dumps
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific background metadata files
+.DS_Store
+Thumbs.db

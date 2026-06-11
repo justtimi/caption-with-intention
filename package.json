@@ -1,0 +1,23 @@
+{
+  "name": "captions-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:engine": "npm run build --workspace=@captions/cue-engine",
+    "dev:app": "npm run dev --workspace=demo-app"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^25.9.3"
+  }
+}
