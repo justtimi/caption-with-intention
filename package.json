@@ -8,7 +8,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:engine": "npm run build --workspace=@captions/cue-engine",
-    "dev:app": "npm run dev --workspace=demo-app"
+    "dev:app": "npm run dev --workspace=demo-app",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run build --workspaces"
   },
   "keywords": [],
   "author": "",

@@ -18,7 +18,7 @@ export default defineConfig({
       // We pass the absolute path directly to the Rolldown engine
       entry: resolve(__dirname, "src/index.ts"),
       name: "CaptionsCueEngine",
-      fileName: (format) => `cue-engine.${format === "es" ? "js" : "umd.cjs"}`,
+      fileName: "index",
     },
     rollupOptions: {
       external: [],
