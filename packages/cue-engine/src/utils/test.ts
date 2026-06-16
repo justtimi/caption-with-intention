@@ -44,4 +44,4 @@ of data to inputs or more than two and frequencies of certain things occurring, 
 00:00:44,280 --> 00:00:48,360
 really wishy washy and not that useful, but I'll show you a couple of examples.`;
 
-console.log(parseSRT(srt, { strict: true, allowEmptyText: false }));
+console.log(parseSRT(srt, { stopOnFirstError: true, allowEmptyText: false, validateOrder: true }));
