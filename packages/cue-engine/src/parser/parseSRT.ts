@@ -8,9 +8,23 @@ export function parseSRT(
   content: string,
   options: ParserOptions = {},
 ): ParseResult {
-  const { strict = false, allowEmptyText = false } = options;
+  if (typeof content !== "string") {
+    throw new TypeError(`parseSRT: expected string, got ${typeof content}`);
+  }
 
-  const blocks = content.trim().split(/\r?\n\r?\n/);
+  const {
+    stopOnFirstError = false,
+    allowEmptyText = false,
+    validateOrder = false,
+  } = options;
+
+  const normalised = content.replace(/^\uFEFF/, "").trim();
+
+  if (!normalised) {
+    return { cues: [], errors: [] };
+  }
+
+  const blocks = normalised.split(/\r?\n\r?\n/);
 
   const cues: CaptionCue[] = [];
   const errors: ParseError[] = [];
@@ -30,7 +44,7 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (strict) {
+      if (stopOnFirstError) {
         return { cues: [], errors };
       }
 
@@ -38,6 +52,22 @@ export function parseSRT(
     }
 
     const cueId = lines[0].trim();
+
+    if (!/^\d+$/.test(cueId)) {
+      errors.push({
+        code: "INVALID_CUE_ID",
+        message: `Cue ID "${cueId}" is not a valid sequence number`,
+        cueId,
+        line: blockNumber,
+        rawBlock: block,
+        severity: "warning",
+      });
+
+      if (stopOnFirstError) {
+        return { cues: [], errors };
+      }
+    }
+
     const timestampLine = lines[1].trim();
 
     const [startRaw, endRaw] = timestampLine.split("-->").map((t) => t?.trim());
@@ -52,7 +82,7 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (strict) {
+      if (stopOnFirstError) {
         return { cues: [], errors };
       }
       continue;
@@ -74,7 +104,7 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (strict) {
+      if (stopOnFirstError) {
         return { cues: [], errors };
       }
       continue;
@@ -90,10 +120,28 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (strict) {
+      if (stopOnFirstError) {
         return { cues: [], errors };
       }
       continue;
+    }
+
+    if (validateOrder && cues.length > 0) {
+      const lastCue = cues[cues.length - 1];
+      if (lastCue !== undefined && startTime < lastCue.endTime) {
+        errors.push({
+          code: "OUT_OF_ORDER",
+          message: `Cue ${cueId} starts before previous cue ends`,
+          cueId,
+          line: blockNumber,
+          rawBlock: block,
+          severity: "warning",
+        });
+
+        if (stopOnFirstError) {
+          return { cues: [], errors };
+        }
+      }
     }
 
     const text = lines.slice(2).join("\n").trim();
@@ -108,7 +156,7 @@ export function parseSRT(
         severity: "warning",
       });
 
-      if (strict) {
+      if (stopOnFirstError) {
         return { cues: [], errors };
       }
       continue;
