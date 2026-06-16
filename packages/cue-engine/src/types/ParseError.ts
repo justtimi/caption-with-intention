@@ -9,5 +9,7 @@ export interface ParseError {
   message: string;
   cueId?: string;
   line?: number;
-  rawBlock: string;
+  severity?: "warning" | "error" | "fatal";
+  blockLine?: number;
+  rawBlock?: string;
 }
