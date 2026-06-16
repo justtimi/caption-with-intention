@@ -1,8 +1,14 @@
-import type { CaptionCue } from "../types/CaptionCue.js";
 import type { ParseResult } from "../types/ParseResult.js";
 import type { ParseError } from "../types/ParseError.js";
 import type { ParserOptions } from "../types/ParserOptions.js";
 import { parseTimestamp } from "../utils/parseTimestamp.js";
+
+type CaptionCue = {
+  id: string;
+  startTime: number;
+  endTime: number;
+  text: string;
+};
 
 export function parseSRT(
   content: string,
@@ -15,19 +21,31 @@ export function parseSRT(
   const cues: CaptionCue[] = [];
   const errors: ParseError[] = [];
 
-  blocks.forEach((block, index) => {
+  let hasFatalError = false;
+
+  function pushError(error: ParseError) {
+    errors.push(error);
+  }
+
+  for (let index = 0; index < blocks.length; index++) {
+  const block = blocks[index];
     const lines = block.split(/\r?\n/);
-    const lineNumber = index + 1;
+    const blockNumber = index + 1;
 
     if (lines.length < 3 || !lines[0] || !lines[1]) {
-      errors.push({
+      pushError({
         code: "INVALID_FORMAT",
         message: "SRT block must contain id, timestamp, and text",
-        line: lineNumber,
+        blockLine: blockNumber,
         rawBlock: block,
+        severity: "error",
       });
 
-      if (strict) return;
+      if (strict) {
+        hasFatalError = true;
+        break;
+      }
+
       return;
     }
 
@@ -37,15 +55,18 @@ export function parseSRT(
     const [startRaw, endRaw] = timestampLine.split("-->").map((t) => t?.trim());
 
     if (!startRaw || !endRaw) {
-      errors.push({
+      pushError({
         code: "INVALID_TIMESTAMP",
         message: "Missing or malformed timestamp",
         cueId,
-        line: lineNumber,
+        blockLine: blockNumber,
         rawBlock: block,
       });
 
-      if (strict) return;
+      if (strict) {
+        hasFatalError = true;
+        break;
+      }
       return;
     }
 
@@ -56,11 +77,11 @@ export function parseSRT(
       startTime = parseTimestamp(startRaw);
       endTime = parseTimestamp(endRaw);
     } catch {
-      errors.push({
+      pushError({
         code: "INVALID_TIMESTAMP",
         message: "Failed to parse timestamp",
         cueId,
-        line: lineNumber,
+        blockLine: blockNumber,
         rawBlock: block,
       });
 
@@ -69,11 +90,11 @@ export function parseSRT(
     }
 
     if (startTime >= endTime) {
-      errors.push({
+      pushError({
         code: "INVALID_TIME_RANGE",
         message: "Start time must be less than end time",
         cueId,
-        line: lineNumber,
+        blockLine: blockNumber,
         rawBlock: block,
       });
 
@@ -84,11 +105,11 @@ export function parseSRT(
     const text = lines.slice(2).join("\n").trim();
 
     if (!text && !allowEmptyText) {
-      errors.push({
+      pushError({
         code: "MISSING_TEXT",
         message: "Caption text is empty",
         cueId,
-        line: lineNumber,
+        blockLine: blockNumber,
         rawBlock: block,
       });
 
@@ -103,6 +124,9 @@ export function parseSRT(
       text,
     });
   });
+  if (hasFatalError) {
+    return { cues, errors };
+  }
 
   return {
     cues,
