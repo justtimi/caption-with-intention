@@ -1,4 +1,5 @@
 export interface ParserOptions {
-  strict?: boolean;
+  stopOnFirstError?: boolean;
   allowEmptyText?: boolean;
+  validateOrder?: boolean;
 }

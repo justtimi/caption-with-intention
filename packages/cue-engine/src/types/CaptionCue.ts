@@ -1,7 +1,6 @@
-export interface CaptionCue {
+export type CaptionCue = {
   id: string;
   startTime: number;
   endTime: number;
   text: string;
-  metadata?: Record<string, any>;
 }

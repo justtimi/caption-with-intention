@@ -15,7 +15,7 @@ This function is part of the `cue-engine` core parsing layer and is designed to 
 ## Import
 
 ```ts
-import { parseSRT } from "@cue-engine/core";
+import { parseSRT } from "@captions/cue-engine";
 ```
 
 ---
@@ -35,7 +35,9 @@ parseSRT(
 
 ### `content: string`
 
-Raw SRT file content as a string.
+Raw SRT file content as a string. Must be a string — passing any other type throws a `TypeError`.
+
+UTF-8 BOM characters are stripped automatically before parsing.
 
 Example:
 
@@ -51,22 +53,30 @@ Hello world
 
 ```ts
 interface ParserOptions {
-  strict?: boolean;
+  stopOnFirstError?: boolean;
   allowEmptyText?: boolean;
+  validateOrder?: boolean;
 }
 ```
 
-#### `strict`
+#### `stopOnFirstError`
 
-* Default: `false`
-* If `true`, parsing stops processing a cue immediately when an error is encountered in that cue.
+- Default: `false`
+- If `true`, parsing halts immediately on the first error and returns `{ cues: [], errors }` with only the errors collected up to that point.
 
 ---
 
 #### `allowEmptyText`
 
-* Default: `false`
-* If `true`, allows cues with empty text to be included in results.
+- Default: `false`
+- If `true`, cues with empty text are included in results rather than skipped with a `MISSING_TEXT` warning.
+
+---
+
+#### `validateOrder`
+
+- Default: `false`
+- If `true`, emits an `OUT_OF_ORDER` warning when a cue's start time begins before the previous cue's end time.
 
 ---
 
@@ -102,9 +112,10 @@ All timestamps are returned in **milliseconds**.
 interface ParseError {
   code: ParseErrorCode;
   message: string;
+  severity: "warning" | "error" | "fatal";
   cueId?: string;
   line?: number;
-  rawBlock: string;
+  rawBlock?: string;
 }
 ```
 
@@ -112,12 +123,14 @@ interface ParseError {
 
 ## Error Codes
 
-| Code               | Meaning                                         |
-| ------------------ | ----------------------------------------------- |
-| INVALID_FORMAT     | Cue block structure is invalid                  |
-| INVALID_TIMESTAMP  | Timestamp could not be parsed                   |
-| MISSING_TEXT       | Caption text is missing                         |
-| INVALID_TIME_RANGE | Start time is greater than or equal to end time |
+| Code               | Severity | Meaning                                         |
+| ------------------ | -------- | ----------------------------------------------- |
+| INVALID_FORMAT     | error    | Cue block is missing required lines             |
+| INVALID_TIMESTAMP  | error    | Timestamp is missing, malformed, or unparseable |
+| INVALID_TIME_RANGE | error    | Start time is greater than or equal to end time |
+| MISSING_TEXT       | warning  | Caption text is empty                           |
+| INVALID_CUE_ID     | warning  | Cue ID is not a valid sequence number           |
+| OUT_OF_ORDER       | warning  | Cue starts before the previous cue ends         |
 
 ---
 
@@ -138,8 +151,9 @@ Returns parsed captions.
 
 Invalid cues do NOT break the entire parse operation. Instead:
 
-* Valid cues are still returned
-* Errors are collected in `errors[]`
+- Valid cues are still returned
+- Errors are collected in `errors[]`
+- Each error includes a `severity` field — `"warning"` for recoverable issues, `"error"` for cues that must be skipped
 
 ---
 
@@ -161,26 +175,28 @@ Invalid cues do NOT break the entire parse operation. Instead:
 
 ---
 
-## Strict mode behavior
+## stopOnFirstError behavior
 
 ```ts
-parseSRT(content, { strict: true });
+parseSRT(content, { stopOnFirstError: true });
 ```
 
-In strict mode:
+When `stopOnFirstError` is `true`:
 
-* malformed cues are skipped more aggressively
-* parsing is less tolerant of bad input
+- Parsing halts immediately on the first error or warning
+- Returns `{ cues: [], errors }` — no partial cue output
+- Useful for strict validation pipelines where partial results are not acceptable
 
 ---
 
 ## Design Principles
 
-* No runtime dependencies
-* No DOM or UI coupling
-* Deterministic output
-* Fail-safe parsing (no thrown errors for bad input)
-* Designed for real-time caption rendering systems
+- No runtime dependencies
+- No DOM or UI coupling
+- Deterministic output
+- Fault-tolerant parsing — invalid cues are skipped and reported, not thrown
+- Throws `TypeError` on programmer errors (non-string input)
+- Designed for real-time caption rendering systems
 
 ---
 
@@ -188,6 +204,6 @@ In strict mode:
 
 This parser is optimized for use in real-time video caption systems where:
 
-* partial file corruption is expected
-* playback must not fail due to bad subtitle data
-* downstream rendering systems require clean cue streams
+- partial file corruption is expected
+- playback must not fail due to bad subtitle data
+- downstream rendering systems require clean cue streams

@@ -11,6 +11,6 @@
   "files": [],
   "references": [
     { "path": "./packages/cue-engine" },
-    { "path": "./apps/demo-app" }
+    // { "path": "./apps/demo-app" }
   ]
 }
