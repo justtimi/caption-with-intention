@@ -5,27 +5,27 @@ export function parseTimestamp(timeStr: string): number {
 
   const trimmed = timeStr.trim();
 
-  // Match: HH:MM:SS,mmm or HH:MM:SS.mmm
-  const match = trimmed.match(/^(\d{2}):(\d{2}):(\d{2})[.,](\d{1,3})$/);
+  // Match: HH:MM:SS,mmm or HH:MM:SS.mmm (SRT + VTT with hours)
+  //    or:    MM:SS.mmm or MM:SS,mmm     (VTT without hours)
+  const match = trimmed.match(/^(?:(\d+):)?(\d{2}):(\d{2})[.,](\d{1,3})$/);
 
   if (!match) {
     throw new Error(`Invalid timestamp format: ${timeStr}`);
   }
 
-  const hh = match[1];
+  const hhRaw = match[1];
   const mm = match[2];
   const ss = match[3];
   const msRaw = match[4];
 
-  if (!hh || !mm || !ss || !msRaw) {
+  if (!mm || !ss || !msRaw) {
     throw new Error(`Invalid timestamp match: ${timeStr}`);
   }
 
-  const hours = Number(hh);
+  const hours = hhRaw !== undefined ? Number(hhRaw) : 0;
   const minutes = Number(mm);
   const seconds = Number(ss);
 
-  // normalize milliseconds to 3 digits
   const ms =
     msRaw.length === 1
       ? Number(msRaw) * 100

@@ -11,15 +11,22 @@
       "require": "./dist/index.umd.cjs"
     }
   },
-   "files": [
+  "files": [
     "dist"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc --noEmit && vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "keywords": ["captions", "srt", "parser", "video", "timeline"],
+  "keywords": [
+    "captions",
+    "srt",
+    "parser",
+    "video",
+    "timeline"
+  ],
   "author": "AFOLAYAN Timileyin Israel",
   "license": "ISC",
   "devDependencies": {

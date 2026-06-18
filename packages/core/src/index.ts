@@ -1,4 +1,4 @@
-export { parseSRT } from "./parser/parseSRT.js";
+export { parseSRT } from "./parsers/parseSRT.js";
 
 export type { CaptionCue } from "./types/CaptionCue.js";
 export type { ParseResult } from "./types/ParseResult.js";

@@ -35,7 +35,7 @@ export function parseSRT(
     const lines = block.split(/\r?\n/);
     const blockNumber = index + 1;
 
-    if (lines.length < 3 || !lines[0] || !lines[1]) {
+    if (lines.length < 2 || !lines[0] || !lines[1]) {
       errors.push({
         code: "INVALID_FORMAT",
         message: "SRT block must contain id, timestamp, and text",

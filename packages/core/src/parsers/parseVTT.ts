@@ -1,6 +1,7 @@
 import type { ParseError } from "../types/ParseError.js";
 import type { ParserOptions } from "../types/ParserOptions.js";
 import { parseTimestamp } from "../utils/parseTimestamp.js";
+import type { ParseResult } from "../types/ParseResult.js";
 
 type RawVTTCue = {
   id?: string | undefined;
@@ -10,7 +11,10 @@ type RawVTTCue = {
   rawSettings?: string | undefined;
 };
 
-export function parseVTT(content: string, options: ParserOptions = {}) {
+export function parseVTT(
+  content: string,
+  options: ParserOptions = {},
+): ParseResult {
   if (typeof content !== "string") {
     throw new TypeError(`parseVTT: expected string, got ${typeof content}`);
   }
@@ -28,8 +32,7 @@ export function parseVTT(content: string, options: ParserOptions = {}) {
   const cues: RawVTTCue[] = [];
   const errors: ParseError[] = [];
 
-  const allLines = content.split(/\r?\n/);
-  console.log(stopOnFirstError, allowEmptyText, validateOrder);
+  const allLines = normalised.split(/\r?\n/);
 
   const firstNonEmptyLine = allLines.find((l) => l.trim() !== "");
 
@@ -47,7 +50,7 @@ export function parseVTT(content: string, options: ParserOptions = {}) {
     };
   }
 
-  const blocks = content.trim().split(/\r?\n\r?\n/);
+  const blocks = normalised.trim().split(/\r?\n\r?\n/);
 
   for (const block of blocks) {
     const trimmedBlock = block.trim();
@@ -166,7 +169,7 @@ export function parseVTT(content: string, options: ParserOptions = {}) {
           message: `Cue ${id} starts before previous cue ends`,
           cueId: id,
           line: index,
-          rawBlock: block,
+          rawBlock: trimmedBlock,
           severity: "warning",
         });
 
@@ -205,5 +208,13 @@ export function parseVTT(content: string, options: ParserOptions = {}) {
     });
   }
 
-  return { cues, errors };
+  return {
+    cues: cues.map(({ id, startTime, endTime, text }) => ({
+      id: id ?? crypto.randomUUID(),
+      startTime,
+      endTime,
+      text,
+    })),
+    errors,
+  };
 }
