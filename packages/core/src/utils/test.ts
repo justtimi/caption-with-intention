@@ -1,4 +1,4 @@
-import { parseSRT } from "@captions/cue-engine";
+import { parseSRT } from "@cue-engine/core";
 
 const srt = `1
 00:00:00,120 --> 00:00:00,900

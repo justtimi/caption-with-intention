@@ -9,8 +9,8 @@ export type ParseErrorCode =
 export interface ParseError {
   code: ParseErrorCode;
   message: string;
-  cueId?: string;
-  line?: number;
+  cueId?: string | undefined;
+  line?: number | undefined;
   severity: "warning" | "error" | "fatal";
   rawBlock?: string | undefined;
 }

@@ -7,7 +7,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:engine": "npm run build --workspace=@captions/cue-engine",
+    "build:engine": "npm run build --workspace=@cue-engine/core",
     "dev:app": "npm run dev --workspace=demo-app",
     "typecheck": "tsc --noEmit",
     "build": "npm run build --workspaces"
