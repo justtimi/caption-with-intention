@@ -3,4 +3,5 @@ export type CaptionCue = {
   startTime: number;
   endTime: number;
   text: string;
+  rawSettings?: string;
 }

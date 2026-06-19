@@ -4,7 +4,7 @@ import { parseTimestamp } from "../utils/parseTimestamp.js";
 import type { ParseResult } from "../types/ParseResult.js";
 
 type RawVTTCue = {
-  id?: string | undefined;
+  id: string;
   startTime: number;
   endTime: number;
   text: string;
@@ -32,9 +32,9 @@ export function parseVTT(
   const cues: RawVTTCue[] = [];
   const errors: ParseError[] = [];
 
-  const allLines = normalised.split(/\r?\n/);
-
-  const firstNonEmptyLine = allLines.find((l) => l.trim() !== "");
+  const firstNonEmptyLine = normalised
+    .split(/\r?\n/)
+    .find((l) => l.trim() !== "");
 
   if (!firstNonEmptyLine?.startsWith("WEBVTT")) {
     return {
@@ -52,7 +52,18 @@ export function parseVTT(
 
   const blocks = normalised.trim().split(/\r?\n\r?\n/);
 
-  for (const block of blocks) {
+  let currentLine = 0;
+  const blockStartLines: number[] = blocks.map((block) => {
+    const start = currentLine;
+    currentLine += block.split(/\r?\n/).length + 1;
+    return start;
+  });
+
+  for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+    const block = blocks[blockIndex];
+    if (block === undefined) continue;
+    const blockStartLine = blockStartLines[blockIndex] ?? 0;
+
     const trimmedBlock = block.trim();
     if (!trimmedBlock) continue;
     if (trimmedBlock.startsWith("WEBVTT")) continue;
@@ -65,8 +76,12 @@ export function parseVTT(
     let index = 0;
     let id: string | undefined;
 
-    if (!blockLines[0]?.includes("-->")) {
-      id = blockLines[0];
+    const firstLine = blockLines[0] ?? "";
+    const firstLineIsCueId =
+      firstLine.trim() !== "" && !firstLine.includes("-->");
+
+    if (firstLineIsCueId) {
+      id = firstLine.trim();
       index++;
     }
 
@@ -75,8 +90,10 @@ export function parseVTT(
     if (!timestampLine) {
       errors.push({
         code: "INVALID_FORMAT",
-        message: "Missing timestamp line",
-        line: index,
+        message: id
+          ? `Incomplete cue block: found ID "${id}" but no timestamp line`
+          : "Missing timestamp line",
+        line: blockStartLine + index,
         rawBlock: trimmedBlock,
         severity: "error",
       });
@@ -95,7 +112,7 @@ export function parseVTT(
         code: "INVALID_TIMESTAMP",
         message: "Missing or malformed timestamp",
         cueId: id,
-        line: index,
+        line: blockStartLine + index,
         rawBlock: trimmedBlock,
         severity: "error",
       });
@@ -105,7 +122,6 @@ export function parseVTT(
       continue;
     }
 
-    // Split end timestamp from cue settings
     const [endRaw, ...settingsParts] = rightSide.split(/\s+/);
     const rawSettings =
       settingsParts.length > 0 ? settingsParts.join(" ") : undefined;
@@ -115,7 +131,7 @@ export function parseVTT(
         code: "INVALID_TIMESTAMP",
         message: "Missing end timestamp",
         cueId: id,
-        line: index,
+        line: blockStartLine + index,
         rawBlock: trimmedBlock,
         severity: "error",
       });
@@ -131,12 +147,13 @@ export function parseVTT(
     try {
       startTime = parseTimestamp(startRaw);
       endTime = parseTimestamp(endRaw);
-    } catch {
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
       errors.push({
         code: "INVALID_TIMESTAMP",
-        message: "Failed to parse timestamp",
+        message: `Invalid timestamp: ${reason}`,
         cueId: id,
-        line: index,
+        line: blockStartLine + index,
         rawBlock: trimmedBlock,
         severity: "error",
       });
@@ -151,7 +168,7 @@ export function parseVTT(
         code: "INVALID_TIME_RANGE",
         message: "Start time must be less than end time",
         cueId: id,
-        line: index,
+        line: blockStartLine + index,
         rawBlock: trimmedBlock,
         severity: "error",
       });
@@ -168,7 +185,7 @@ export function parseVTT(
           code: "OUT_OF_ORDER",
           message: `Cue ${id} starts before previous cue ends`,
           cueId: id,
-          line: index,
+          line: blockStartLine + index,
           rawBlock: trimmedBlock,
           severity: "warning",
         });
@@ -189,7 +206,7 @@ export function parseVTT(
         code: "MISSING_TEXT",
         message: "Caption text is empty",
         cueId: id,
-        line: index,
+        line: blockStartLine + index,
         rawBlock: trimmedBlock,
         severity: "warning",
       });
@@ -200,7 +217,7 @@ export function parseVTT(
     }
 
     cues.push({
-      id,
+      id: id ?? `cue-${blockIndex}`,
       startTime,
       endTime,
       text,
@@ -209,11 +226,12 @@ export function parseVTT(
   }
 
   return {
-    cues: cues.map(({ id, startTime, endTime, text }) => ({
-      id: id ?? crypto.randomUUID(),
+    cues: cues.map(({ id, startTime, endTime, text, rawSettings }) => ({
+      id,
       startTime,
       endTime,
       text,
+      ...(rawSettings !== undefined && { rawSettings }),
     })),
     errors,
   };

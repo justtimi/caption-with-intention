@@ -6,14 +6,7 @@ settings:
 
 importers:
 
-  .:
-    devDependencies:
-      '@types/node':
-        specifier: ^25.9.3
-        version: 25.9.3
-      vitest:
-        specifier: ^4.1.9
-        version: 4.1.9(@types/node@25.9.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.27.7))
+  .: {}
 
   apps/demo-app:
     dependencies:
@@ -29,6 +22,9 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@25.9.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.27.7))
 
 packages:
 
@@ -1202,6 +1198,7 @@ snapshots:
   '@types/node@25.9.3':
     dependencies:
       undici-types: 7.24.6
+    optional: true
 
   '@vitest/expect@4.1.9':
     dependencies:
@@ -1571,7 +1568,8 @@ snapshots:
 
   ufo@1.6.4: {}
 
-  undici-types@7.24.6: {}
+  undici-types@7.24.6:
+    optional: true
 
   vite@8.0.16(@types/node@25.9.3)(esbuild@0.27.7):
     dependencies:

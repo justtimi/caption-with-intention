@@ -94,10 +94,11 @@ export function parseSRT(
     try {
       startTime = parseTimestamp(startRaw);
       endTime = parseTimestamp(endRaw);
-    } catch {
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
       errors.push({
         code: "INVALID_TIMESTAMP",
-        message: "Failed to parse timestamp",
+        message: `Invalid timestamp: ${reason}`,
         cueId,
         line: blockNumber,
         rawBlock: block,
