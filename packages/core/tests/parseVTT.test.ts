@@ -207,6 +207,12 @@ describe("valid single cue without ID", () => {
     const result = parseVTT(makeVTT([VALID_BLOCK_1]));
     expect(result.cues[0]?.text).toBe("Hello world");
   });
+
+  it("generates deterministic IDs based on block index", () => {
+  const result = parseVTT(makeVTT([VALID_BLOCK_1, VALID_BLOCK_2]));
+  expect(result.cues[0]?.id).toBe("cue-1");
+  expect(result.cues[1]?.id).toBe("cue-2");
+});
 });
 
 // ---------------------------------------------------------------------------
@@ -647,6 +653,67 @@ describe("multiple errors", () => {
     expect(codes).toContain("INVALID_TIMESTAMP");
     expect(codes).toContain("INVALID_TIME_RANGE");
     expect(result.cues).toHaveLength(1);
+  });
+});
+
+describe("cue settings parsing", () => {
+  it("parses align setting into settings object", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 align:center\nText"]));
+    expect(result.cues[0]?.settings?.align).toBe("center");
+  });
+
+  it("parses multiple settings into settings object", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 align:start position:50% size:80%\nText"]));
+    expect(result.cues[0]?.settings?.align).toBe("start");
+    expect(result.cues[0]?.settings?.position).toBe("50%");
+    expect(result.cues[0]?.settings?.size).toBe("80%");
+  });
+
+  it("settings is undefined when no settings are present", () => {
+    const result = parseVTT(makeVTT([VALID_BLOCK_1]));
+    expect(result.cues[0]?.settings).toBeUndefined();
+  });
+
+  it("ignores unknown setting keys", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 unknown:value\nText"]));
+    expect(result.cues[0]?.settings).toEqual({});
+  });
+
+  it("ignores invalid align values", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 align:invalid\nText"]));
+    expect(result.cues[0]?.settings?.align).toBeUndefined();
+  });
+
+  it("parses vertical setting", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 vertical:rl\nText"]));
+    expect(result.cues[0]?.settings?.vertical).toBe("rl");
+  });
+});
+
+describe("stripTags option", () => {
+  it("strips bold tags when stripTags is true", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]), { stripTags: true });
+    expect(result.cues[0]?.text).toBe("Hello");
+  });
+
+  it("strips voice spans when stripTags is true", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<v Speaker>Hello</v>"]), { stripTags: true });
+    expect(result.cues[0]?.text).toBe("Hello");
+  });
+
+  it("strips timestamp tags when stripTags is true", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<00:01.500>Hello"]), { stripTags: true });
+    expect(result.cues[0]?.text).toBe("Hello");
+  });
+
+  it("preserves tags when stripTags is false", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]), { stripTags: false });
+    expect(result.cues[0]?.text).toBe("<b>Hello</b>");
+  });
+
+  it("preserves tags by default", () => {
+    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]));
+    expect(result.cues[0]?.text).toBe("<b>Hello</b>");
   });
 });
 

@@ -3,6 +3,7 @@ import type { ParseError } from "../types/ParseError.js";
 import type { ParserOptions } from "../types/ParserOptions.js";
 import { parseTimestamp } from "../utils/parseTimestamp.js";
 import type { CaptionCue } from "../types/CaptionCue.js";
+import { stripSRTTags } from "../utils/stripSRTTags.js";
 
 export function parseSRT(
   content: string,
@@ -16,6 +17,7 @@ export function parseSRT(
     stopOnFirstError = false,
     allowEmptyText = false,
     validateOrder = false,
+    stripTags = false,
   } = options;
 
   const normalised = content.replace(/^\uFEFF/, "").trim();
@@ -26,20 +28,27 @@ export function parseSRT(
 
   const blocks = normalised.split(/\r?\n\r?\n/);
 
+  let currentLine = 0;
+  const blockStartLines: number[] = blocks.map((block) => {
+    const start = currentLine;
+    currentLine += block.split(/\r?\n/).length + 1;
+    return start;
+  });
+
   const cues: CaptionCue[] = [];
   const errors: ParseError[] = [];
 
   for (let index = 0; index < blocks.length; index++) {
     const block = blocks[index];
     if (block === undefined) continue;
+    const blockStartLine = blockStartLines[index] ?? 0;
     const lines = block.split(/\r?\n/);
-    const blockNumber = index + 1;
 
     if (lines.length < 2 || !lines[0] || !lines[1]) {
       errors.push({
         code: "INVALID_FORMAT",
         message: "SRT block must contain id, timestamp, and text",
-        line: blockNumber,
+        line: blockStartLine,
         rawBlock: block,
         severity: "error",
       });
@@ -58,7 +67,7 @@ export function parseSRT(
         code: "INVALID_CUE_ID",
         message: `Cue ID "${cueId}" is not a valid sequence number`,
         cueId,
-        line: blockNumber,
+        line: blockStartLine,
         rawBlock: block,
         severity: "warning",
       });
@@ -77,7 +86,7 @@ export function parseSRT(
         code: "INVALID_TIMESTAMP",
         message: "Missing or malformed timestamp",
         cueId,
-        line: blockNumber,
+        line: blockStartLine + 1,
         rawBlock: block,
         severity: "error",
       });
@@ -100,7 +109,7 @@ export function parseSRT(
         code: "INVALID_TIMESTAMP",
         message: `Invalid timestamp: ${reason}`,
         cueId,
-        line: blockNumber,
+        line: blockStartLine + 1,
         rawBlock: block,
         severity: "error",
       });
@@ -116,7 +125,7 @@ export function parseSRT(
         code: "INVALID_TIME_RANGE",
         message: "Start time must be less than end time",
         cueId,
-        line: blockNumber,
+        line: blockStartLine + 1,
         rawBlock: block,
         severity: "error",
       });
@@ -134,7 +143,7 @@ export function parseSRT(
           code: "OUT_OF_ORDER",
           message: `Cue ${cueId} starts before previous cue ends`,
           cueId,
-          line: blockNumber,
+          line: blockStartLine,
           rawBlock: block,
           severity: "warning",
         });
@@ -145,14 +154,15 @@ export function parseSRT(
       }
     }
 
-    const text = lines.slice(2).join("\n").trim();
+    const rawText = lines.slice(2).join("\n").trim();
+    const text = stripTags ? stripSRTTags(rawText) : rawText;
 
     if (!text && !allowEmptyText) {
       errors.push({
         code: "MISSING_TEXT",
         message: "Caption text is empty",
         cueId,
-        line: blockNumber,
+        line: blockStartLine,
         rawBlock: block,
         severity: "warning",
       });

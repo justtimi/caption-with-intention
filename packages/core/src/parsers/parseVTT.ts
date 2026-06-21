@@ -2,13 +2,16 @@ import type { ParseError } from "../types/ParseError.js";
 import type { ParserOptions } from "../types/ParserOptions.js";
 import { parseTimestamp } from "../utils/parseTimestamp.js";
 import type { ParseResult } from "../types/ParseResult.js";
+import { stripVTTTags } from "../utils/stripVTTTags.js";
+import { parseVTTCueSettings } from "../utils/parseVTTCueSettings.js";
+import type { VTTCueSettings } from "../types/VTTCueSettings.js";
 
 type RawVTTCue = {
   id: string;
   startTime: number;
   endTime: number;
   text: string;
-  rawSettings?: string | undefined;
+  settings?: VTTCueSettings;
 };
 
 export function parseVTT(
@@ -22,6 +25,7 @@ export function parseVTT(
     stopOnFirstError = false,
     allowEmptyText = false,
     validateOrder = false,
+    stripTags = false,
   } = options;
   const normalised = content.replace(/^\uFEFF/, "").trim();
 
@@ -123,8 +127,6 @@ export function parseVTT(
     }
 
     const [endRaw, ...settingsParts] = rightSide.split(/\s+/);
-    const rawSettings =
-      settingsParts.length > 0 ? settingsParts.join(" ") : undefined;
 
     if (!endRaw) {
       errors.push({
@@ -140,6 +142,11 @@ export function parseVTT(
       }
       continue;
     }
+
+    const settings =
+      settingsParts.length > 0
+        ? parseVTTCueSettings(settingsParts.join(" "))
+        : undefined;
 
     let startTime: number;
     let endTime: number;
@@ -196,10 +203,12 @@ export function parseVTT(
       }
     }
 
-    const text = blockLines
+    const rawText = blockLines
       .slice(index + 1)
       .join("\n")
       .trim();
+
+    const text = stripTags ? stripVTTTags(rawText) : rawText;
 
     if (!text && !allowEmptyText) {
       errors.push({
@@ -221,17 +230,17 @@ export function parseVTT(
       startTime,
       endTime,
       text,
-      rawSettings,
+      ...(settings !== undefined && { settings }),
     });
   }
 
   return {
-    cues: cues.map(({ id, startTime, endTime, text, rawSettings }) => ({
+    cues: cues.map(({ id, startTime, endTime, text, settings }) => ({
       id,
       startTime,
       endTime,
       text,
-      ...(rawSettings !== undefined && { rawSettings }),
+      ...(settings !== undefined && { settings }),
     })),
     errors,
   };

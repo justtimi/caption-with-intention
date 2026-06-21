@@ -17,7 +17,8 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "captions",
@@ -29,6 +30,7 @@
   "author": "AFOLAYAN Timileyin Israel",
   "license": "MIT",
   "devDependencies": {
+    "@vitest/coverage-v8": "4.1.9",
     "tsup": "^8.5.1",
     "typescript": "6.0.3",
     "vitest": "^4.1.9"

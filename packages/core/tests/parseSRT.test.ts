@@ -135,33 +135,40 @@ describe("valid single cue", () => {
 
 describe("valid multiple cues", () => {
   it("parses multiple valid cues", () => {
-    const result = parseSRT(makeSRT([VALID_BLOCK_1, VALID_BLOCK_2, VALID_BLOCK_3]));
+    const result = parseSRT(
+      makeSRT([VALID_BLOCK_1, VALID_BLOCK_2, VALID_BLOCK_3]),
+    );
     expect(result.cues).toHaveLength(3);
     expect(result.errors).toHaveLength(0);
   });
 
   it("preserves cue order", () => {
-    const result = parseSRT(makeSRT([VALID_BLOCK_1, VALID_BLOCK_2, VALID_BLOCK_3]));
+    const result = parseSRT(
+      makeSRT([VALID_BLOCK_1, VALID_BLOCK_2, VALID_BLOCK_3]),
+    );
     expect(result.cues[0]?.id).toBe("1");
     expect(result.cues[1]?.id).toBe("2");
     expect(result.cues[2]?.id).toBe("3");
   });
 
   it("handles Windows-style line endings (CRLF)", () => {
-    const content = "1\r\n00:00:01,000 --> 00:00:03,000\r\nHello world\r\n\r\n2\r\n00:00:04,000 --> 00:00:06,000\r\nGoodbye";
+    const content =
+      "1\r\n00:00:01,000 --> 00:00:03,000\r\nHello world\r\n\r\n2\r\n00:00:04,000 --> 00:00:06,000\r\nGoodbye";
     const result = parseSRT(content);
     expect(result.cues).toHaveLength(2);
     expect(result.errors).toHaveLength(0);
   });
 
   it("handles mixed line endings", () => {
-    const content = "1\r\n00:00:01,000 --> 00:00:03,000\r\nHello\n\n2\n00:00:04,000 --> 00:00:06,000\nWorld";
+    const content =
+      "1\r\n00:00:01,000 --> 00:00:03,000\r\nHello\n\n2\n00:00:04,000 --> 00:00:06,000\nWorld";
     const result = parseSRT(content);
     expect(result.cues).toHaveLength(2);
   });
 
   it("handles multi-line cue text", () => {
-    const block = "1\n00:00:01,000 --> 00:00:03,000\nLine one\nLine two\nLine three";
+    const block =
+      "1\n00:00:01,000 --> 00:00:03,000\nLine one\nLine two\nLine three";
     const result = parseSRT(block);
     expect(result.cues[0]?.text).toBe("Line one\nLine two\nLine three");
   });
@@ -229,13 +236,13 @@ describe("INVALID_FORMAT", () => {
   });
 
   it("reports error for block with only two lines", () => {
-  const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000");
-  expect(result.errors[0]?.code).toBe("MISSING_TEXT");
-});
+    const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000");
+    expect(result.errors[0]?.code).toBe("MISSING_TEXT");
+  });
 
   it("includes block line number in error", () => {
     const result = parseSRT("1");
-    expect(result.errors[0]?.line).toBe(1);
+    expect(result.errors[0]?.line).toBe(0);
   });
 
   it("includes rawBlock in error", () => {
@@ -320,7 +327,10 @@ describe("INVALID_TIME_RANGE", () => {
   });
 
   it("skips the invalid cue but continues parsing", () => {
-    const content = makeSRT(["1\n00:00:05,000 --> 00:00:03,000\nText", VALID_BLOCK_2]);
+    const content = makeSRT([
+      "1\n00:00:05,000 --> 00:00:03,000\nText",
+      VALID_BLOCK_2,
+    ]);
     const result = parseSRT(content);
     expect(result.cues).toHaveLength(1);
     expect(result.cues[0]?.id).toBe("2");
@@ -487,19 +497,28 @@ describe("stopOnFirstError", () => {
   });
 
   it("halts on INVALID_TIME_RANGE", () => {
-    const content = makeSRT(["1\n00:00:05,000 --> 00:00:01,000\nText", VALID_BLOCK_2]);
+    const content = makeSRT([
+      "1\n00:00:05,000 --> 00:00:01,000\nText",
+      VALID_BLOCK_2,
+    ]);
     const result = parseSRT(content, { stopOnFirstError: true });
     expect(result.cues).toHaveLength(0);
   });
 
   it("halts on MISSING_TEXT warning", () => {
-    const content = makeSRT(["1\n00:00:01,000 --> 00:00:03,000\n", VALID_BLOCK_2]);
+    const content = makeSRT([
+      "1\n00:00:01,000 --> 00:00:03,000\n",
+      VALID_BLOCK_2,
+    ]);
     const result = parseSRT(content, { stopOnFirstError: true });
     expect(result.cues).toHaveLength(0);
   });
 
   it("halts on INVALID_CUE_ID warning", () => {
-    const content = makeSRT(["abc\n00:00:01,000 --> 00:00:03,000\nText", VALID_BLOCK_2]);
+    const content = makeSRT([
+      "abc\n00:00:01,000 --> 00:00:03,000\nText",
+      VALID_BLOCK_2,
+    ]);
     const result = parseSRT(content, { stopOnFirstError: true });
     expect(result.cues).toHaveLength(0);
   });
@@ -534,8 +553,44 @@ describe("multiple errors", () => {
   it("assigns correct line numbers to each error", () => {
     const content = makeSRT(["bad1", "bad2"]);
     const result = parseSRT(content);
-    expect(result.errors[0]?.line).toBe(1);
+    expect(result.errors[0]?.line).toBe(0);
     expect(result.errors[1]?.line).toBe(2);
+  });
+});
+
+describe("stripTags option", () => {
+  it("strips italic tags when stripTags is true", () => {
+    const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000\n<i>Hello</i>", {
+      stripTags: true,
+    });
+    expect(result.cues[0]?.text).toBe("Hello");
+  });
+
+  it("strips bold tags when stripTags is true", () => {
+    const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000\n<b>Hello</b>", {
+      stripTags: true,
+    });
+    expect(result.cues[0]?.text).toBe("Hello");
+  });
+
+  it("strips font tags when stripTags is true", () => {
+    const result = parseSRT(
+      '1\n00:00:01,000 --> 00:00:03,000\n<font color="red">Hello</font>',
+      { stripTags: true },
+    );
+    expect(result.cues[0]?.text).toBe("Hello");
+  });
+
+  it("preserves tags when stripTags is false", () => {
+    const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000\n<i>Hello</i>", {
+      stripTags: false,
+    });
+    expect(result.cues[0]?.text).toBe("<i>Hello</i>");
+  });
+
+  it("preserves tags by default", () => {
+    const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000\n<i>Hello</i>");
+    expect(result.cues[0]?.text).toBe("<i>Hello</i>");
   });
 });
 
@@ -563,8 +618,10 @@ describe("edge cases", () => {
   });
 
   it("handles cue text with special characters", () => {
-    const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000\n<i>Hello</i> & \"world\"");
-    expect(result.cues[0]?.text).toBe("<i>Hello</i> & \"world\"");
+    const result = parseSRT(
+      '1\n00:00:01,000 --> 00:00:03,000\n<i>Hello</i> & "world"',
+    );
+    expect(result.cues[0]?.text).toBe('<i>Hello</i> & "world"');
   });
 
   it("handles unicode text", () => {
@@ -576,8 +633,7 @@ describe("edge cases", () => {
     const blocks = Array.from({ length: 1000 }, (_, i) => {
       const start = i * 2;
       const end = start + 1;
-      const fmt = (s: number) =>
-        `00:00:${String(s % 60).padStart(2, "0")},000`;
+      const fmt = (s: number) => `00:00:${String(s % 60).padStart(2, "0")},000`;
       return `${i + 1}\n${fmt(start)} --> ${fmt(end)}\nLine ${i + 1}`;
     });
     const result = parseSRT(makeSRT(blocks));
