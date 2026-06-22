@@ -26,7 +26,7 @@ export function parseSRT(
     return { cues: [], errors: [] };
   }
 
-  const blocks = normalised.split(/\r?\n\r?\n/);
+  const blocks = normalised.split(/\r?\n\s*\r?\n/);
 
   let currentLine = 0;
   const blockStartLines: number[] = blocks.map((block) => {
@@ -37,6 +37,9 @@ export function parseSRT(
 
   const cues: CaptionCue[] = [];
   const errors: ParseError[] = [];
+
+  const haltIfNeeded = (): ParseResult | null =>
+    stopOnFirstError ? { cues: [], errors } : null;
 
   for (let index = 0; index < blocks.length; index++) {
     const block = blocks[index];
@@ -53,9 +56,8 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
 
       continue;
     }
@@ -72,9 +74,8 @@ export function parseSRT(
         severity: "warning",
       });
 
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
     }
 
     const timestampLine = lines[1].trim();
@@ -91,9 +92,8 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -114,9 +114,8 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -130,9 +129,8 @@ export function parseSRT(
         severity: "error",
       });
 
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -148,9 +146,8 @@ export function parseSRT(
           severity: "warning",
         });
 
-        if (stopOnFirstError) {
-          return { cues: [], errors };
-        }
+        const halted = haltIfNeeded();
+        if (halted) return halted;
       }
     }
 
@@ -167,9 +164,8 @@ export function parseSRT(
         severity: "warning",
       });
 
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 

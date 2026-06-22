@@ -4,15 +4,7 @@ import { parseTimestamp } from "../utils/parseTimestamp.js";
 import type { ParseResult } from "../types/ParseResult.js";
 import { stripVTTTags } from "../utils/stripVTTTags.js";
 import { parseVTTCueSettings } from "../utils/parseVTTCueSettings.js";
-import type { VTTCueSettings } from "../types/VTTCueSettings.js";
-
-type RawVTTCue = {
-  id: string;
-  startTime: number;
-  endTime: number;
-  text: string;
-  settings?: VTTCueSettings;
-};
+import type { CaptionCue } from "../types/CaptionCue.js";
 
 export function parseVTT(
   content: string,
@@ -27,20 +19,24 @@ export function parseVTT(
     validateOrder = false,
     stripTags = false,
   } = options;
+
   const normalised = content.replace(/^\uFEFF/, "").trim();
 
   if (!normalised) {
     return { cues: [], errors: [] };
   }
 
-  const cues: RawVTTCue[] = [];
+  const cues: CaptionCue[] = [];
   const errors: ParseError[] = [];
+
+  const haltIfNeeded = (): ParseResult | null =>
+    stopOnFirstError ? { cues: [], errors } : null;
 
   const firstNonEmptyLine = normalised
     .split(/\r?\n/)
     .find((l) => l.trim() !== "");
 
-  if (!firstNonEmptyLine?.startsWith("WEBVTT")) {
+  if (!firstNonEmptyLine || !/^WEBVTT(\s|$)/.test(firstNonEmptyLine)) {
     return {
       cues: [],
       errors: [
@@ -54,7 +50,7 @@ export function parseVTT(
     };
   }
 
-  const blocks = normalised.trim().split(/\r?\n\r?\n/);
+  const blocks = normalised.split(/\r?\n\s*\r?\n/);
 
   let currentLine = 0;
   const blockStartLines: number[] = blocks.map((block) => {
@@ -70,10 +66,30 @@ export function parseVTT(
 
     const trimmedBlock = block.trim();
     if (!trimmedBlock) continue;
-    if (trimmedBlock.startsWith("WEBVTT")) continue;
-    if (trimmedBlock.startsWith("NOTE")) continue;
-    if (trimmedBlock.startsWith("STYLE")) continue;
-    if (trimmedBlock.startsWith("REGION")) continue;
+    if (
+      trimmedBlock === "WEBVTT" ||
+      trimmedBlock.startsWith("WEBVTT ") ||
+      trimmedBlock.startsWith("WEBVTT\n")
+    )
+      continue;
+    if (
+      trimmedBlock === "NOTE" ||
+      trimmedBlock.startsWith("NOTE ") ||
+      trimmedBlock.startsWith("NOTE\n")
+    )
+      continue;
+    if (
+      trimmedBlock === "STYLE" ||
+      trimmedBlock.startsWith("STYLE ") ||
+      trimmedBlock.startsWith("STYLE\n")
+    )
+      continue;
+    if (
+      trimmedBlock === "REGION" ||
+      trimmedBlock.startsWith("REGION ") ||
+      trimmedBlock.startsWith("REGION\n")
+    )
+      continue;
 
     const blockLines = trimmedBlock.split(/\r?\n/);
 
@@ -101,9 +117,8 @@ export function parseVTT(
         rawBlock: trimmedBlock,
         severity: "error",
       });
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -120,9 +135,8 @@ export function parseVTT(
         rawBlock: trimmedBlock,
         severity: "error",
       });
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -137,9 +151,8 @@ export function parseVTT(
         rawBlock: trimmedBlock,
         severity: "error",
       });
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -164,9 +177,8 @@ export function parseVTT(
         rawBlock: trimmedBlock,
         severity: "error",
       });
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -179,9 +191,8 @@ export function parseVTT(
         rawBlock: trimmedBlock,
         severity: "error",
       });
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -197,9 +208,8 @@ export function parseVTT(
           severity: "warning",
         });
 
-        if (stopOnFirstError) {
-          return { cues: [], errors };
-        }
+        const halted = haltIfNeeded();
+        if (halted) return halted;
       }
     }
 
@@ -219,9 +229,8 @@ export function parseVTT(
         rawBlock: trimmedBlock,
         severity: "warning",
       });
-      if (stopOnFirstError) {
-        return { cues: [], errors };
-      }
+      const halted = haltIfNeeded();
+      if (halted) return halted;
       continue;
     }
 
@@ -234,14 +243,5 @@ export function parseVTT(
     });
   }
 
-  return {
-    cues: cues.map(({ id, startTime, endTime, text, settings }) => ({
-      id,
-      startTime,
-      endTime,
-      text,
-      ...(settings !== undefined && { settings }),
-    })),
-    errors,
-  };
+  return { cues, errors };
 }

@@ -130,6 +130,13 @@ describe("header validation", () => {
     const result = parseVTT(`WEBVTT\n\n${VALID_BLOCK_1}`);
     expect(result.cues).toHaveLength(1);
   });
+
+  it("returns fatal error for header that starts with WEBVTT but has no space or end", () => {
+    const result = parseVTT("WEBVTTX\n\n" + VALID_BLOCK_1);
+    expect(result.errors[0]?.code).toBe("INVALID_FORMAT");
+    expect(result.errors[0]?.severity).toBe("fatal");
+    expect(result.cues).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -174,6 +181,14 @@ describe("block filtering", () => {
     expect(result.cues).toHaveLength(2);
     expect(result.errors).toHaveLength(0);
   });
+
+  it("does not skip a cue with ID starting with NOTE", () => {
+    const result = parseVTT(
+      makeVTT(["NOTEBOOK\n00:00:01.000 --> 00:00:03.000\nText"]),
+    );
+    expect(result.cues).toHaveLength(1);
+    expect(result.cues[0]?.id).toBe("NOTEBOOK");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -209,10 +224,10 @@ describe("valid single cue without ID", () => {
   });
 
   it("generates deterministic IDs based on block index", () => {
-  const result = parseVTT(makeVTT([VALID_BLOCK_1, VALID_BLOCK_2]));
-  expect(result.cues[0]?.id).toBe("cue-1");
-  expect(result.cues[1]?.id).toBe("cue-2");
-});
+    const result = parseVTT(makeVTT([VALID_BLOCK_1, VALID_BLOCK_2]));
+    expect(result.cues[0]?.id).toBe("cue-1");
+    expect(result.cues[1]?.id).toBe("cue-2");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -289,6 +304,14 @@ describe("valid multiple cues", () => {
       "00:00:01.000 --> 00:00:03.000\nLine one\nLine two\nLine three";
     const result = parseVTT(makeVTT([block]));
     expect(result.cues[0]?.text).toBe("Line one\nLine two\nLine three");
+  });
+
+  it("handles multiple blank lines between blocks", () => {
+    const result = parseVTT(
+      `WEBVTT\n\n\n\n${VALID_BLOCK_1}\n\n\n\n${VALID_BLOCK_2}`,
+    );
+    expect(result.cues).toHaveLength(2);
+    expect(result.errors).toHaveLength(0);
   });
 });
 
@@ -658,12 +681,18 @@ describe("multiple errors", () => {
 
 describe("cue settings parsing", () => {
   it("parses align setting into settings object", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 align:center\nText"]));
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000 align:center\nText"]),
+    );
     expect(result.cues[0]?.settings?.align).toBe("center");
   });
 
   it("parses multiple settings into settings object", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 align:start position:50% size:80%\nText"]));
+    const result = parseVTT(
+      makeVTT([
+        "00:00:01.000 --> 00:00:03.000 align:start position:50% size:80%\nText",
+      ]),
+    );
     expect(result.cues[0]?.settings?.align).toBe("start");
     expect(result.cues[0]?.settings?.position).toBe("50%");
     expect(result.cues[0]?.settings?.size).toBe("80%");
@@ -675,44 +704,64 @@ describe("cue settings parsing", () => {
   });
 
   it("ignores unknown setting keys", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 unknown:value\nText"]));
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000 unknown:value\nText"]),
+    );
     expect(result.cues[0]?.settings).toEqual({});
   });
 
   it("ignores invalid align values", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 align:invalid\nText"]));
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000 align:invalid\nText"]),
+    );
     expect(result.cues[0]?.settings?.align).toBeUndefined();
   });
 
   it("parses vertical setting", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000 vertical:rl\nText"]));
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000 vertical:rl\nText"]),
+    );
     expect(result.cues[0]?.settings?.vertical).toBe("rl");
   });
 });
 
 describe("stripTags option", () => {
   it("strips bold tags when stripTags is true", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]), { stripTags: true });
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]),
+      { stripTags: true },
+    );
     expect(result.cues[0]?.text).toBe("Hello");
   });
 
   it("strips voice spans when stripTags is true", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<v Speaker>Hello</v>"]), { stripTags: true });
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000\n<v Speaker>Hello</v>"]),
+      { stripTags: true },
+    );
     expect(result.cues[0]?.text).toBe("Hello");
   });
 
   it("strips timestamp tags when stripTags is true", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<00:01.500>Hello"]), { stripTags: true });
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000\n<00:01.500>Hello"]),
+      { stripTags: true },
+    );
     expect(result.cues[0]?.text).toBe("Hello");
   });
 
   it("preserves tags when stripTags is false", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]), { stripTags: false });
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]),
+      { stripTags: false },
+    );
     expect(result.cues[0]?.text).toBe("<b>Hello</b>");
   });
 
   it("preserves tags by default", () => {
-    const result = parseVTT(makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]));
+    const result = parseVTT(
+      makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]),
+    );
     expect(result.cues[0]?.text).toBe("<b>Hello</b>");
   });
 });
