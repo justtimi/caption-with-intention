@@ -463,6 +463,18 @@ describe("OUT_OF_ORDER", () => {
     const result = parseSRT(content, { validateOrder: true });
     expect(result.errors.some((e) => e.code === "OUT_OF_ORDER")).toBe(false);
   });
+  it("cues is empty when stopOnFirstError and validateOrder are set to true and code does not pass", () => {
+    const content = makeSRT([
+      "2\n00:00:01,000 --> 00:00:03,000\nFirst",
+      "1\n00:00:02,000 --> 00:00:05,000\nSecond",
+    ]);
+    const result = parseSRT(content, {
+      stopOnFirstError: true,
+      validateOrder: true,
+    });
+    expect(result.cues).toEqual([]);
+    expect(result.errors.some((e) => e.code === "OUT_OF_ORDER")).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -591,6 +603,28 @@ describe("stripTags option", () => {
   it("preserves tags by default", () => {
     const result = parseSRT("1\n00:00:01,000 --> 00:00:03,000\n<i>Hello</i>");
     expect(result.cues[0]?.text).toBe("<i>Hello</i>");
+  });
+});
+describe("sorting", () => {
+  it("sorts cues by startTime regardless of file order", () => {
+    const content = makeSRT([
+      "2\n00:00:05,000 --> 00:00:06,000\nSecond",
+      "1\n00:00:01,000 --> 00:00:02,000\nFirst",
+    ]);
+    const result = parseSRT(content);
+
+    expect(result.cues.map((c) => c.text)).toEqual(["First", "Second"]);
+  });
+
+  it("uses blockIndex as tiebreaker when start times are identical", () => {
+    const content = makeSRT([
+      "1\n00:00:01,000 --> 00:00:03,000\nFirst Cue",
+      "2\n00:00:01,000 --> 00:00:04,000\nSecond Cue",
+    ]);
+
+    const result = parseSRT(content);
+
+    expect(result.cues.map((c) => c.text)).toEqual(["First Cue", "Second Cue"]);
   });
 });
 
