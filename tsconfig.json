@@ -10,7 +10,7 @@
   },
   "files": [],
   "references": [
-    { "path": "./packages/cue-engine" },
+    { "path": "./packages/core" },
     // { "path": "./apps/demo-app" }
   ]
 }

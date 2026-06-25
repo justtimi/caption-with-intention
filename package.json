@@ -6,20 +6,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build:engine": "npm run build --workspace=@captions/cue-engine",
-    "dev:app": "npm run dev --workspace=demo-app",
+    "test": "pnpm --filter \"./packages/**\" test",
+    "build:engine": "pnpm --filter @cue-engine/core build",
+    "dev:app": "pnpm --filter demo-app dev",
     "typecheck": "tsc --noEmit",
-    "build": "npm run build --workspaces"
+    "build": "pnpm --filter \"./packages/**\" --filter \"./apps/**\" build"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
-  "devDependencies": {
-    "@types/node": "^25.9.3"
-  }
+  "license": "MIT"
 }

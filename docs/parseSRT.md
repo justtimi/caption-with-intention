@@ -1,87 +1,109 @@
-```markdown
-# parseSRT
+# `parseSRT`
 
-Parses an SRT subtitle file into structured caption cues with optional error reporting.
-
----
-
-## Overview
-
-`parseSRT` converts raw `.srt` subtitle content into a structured format that can be used for synchronized video caption rendering. It also returns detailed parsing errors instead of failing silently.
-
-This function is part of the `cue-engine` core parsing layer and is designed to be **framework-agnostic, deterministic, and fault-tolerant**.
+Parses an SRT subtitle file into a structured list of cues and a list of parse errors. The parser is fault-tolerant by default — it collects errors and continues rather than throwing on malformed input.
 
 ---
 
-## Import
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+  - [`parseSRT`](#parsesrt-1)
+  - [`ParserOptions`](#parseroptions)
+  - [`ParseResult`](#parseresult)
+  - [`CaptionCue`](#captioncue)
+  - [`ParseError`](#parseerror)
+  - [`ParseErrorCode`](#parseerrorcode)
+- [Utilities](#utilities)
+  - [`stripSRTTags`](#stripsrttags)
+- [Error Handling](#error-handling)
+- [Format Notes](#format-notes)
+- [Contributor Notes](#contributor-notes)
+
+---
+
+## Quick Start
 
 ```ts
-import { parseSRT } from "@captions/cue-engine";
+import { parseSRT } from "@cue-engine/core";
+
+const result = parseSRT(content);
+
+if (result.errors.length > 0) {
+  console.warn("Parse errors:", result.errors);
+}
+
+for (const cue of result.cues) {
+  console.log(cue.startTime, cue.endTime, cue.text);
+}
 ```
 
----
-
-## Signature
+With options:
 
 ```ts
-parseSRT(
-  content: string,
-  options?: ParserOptions
-): ParseResult
+const result = parseSRT(content, {
+  stripTags: true,
+  validateOrder: true,
+  stopOnFirstError: false,
+});
 ```
 
 ---
 
-## Parameters
+## API Reference
 
-### `content: string`
+### `parseSRT`
 
-Raw SRT file content as a string. Must be a string — passing any other type throws a `TypeError`.
-
-UTF-8 BOM characters are stripped automatically before parsing.
-
-Example:
-
+```ts
+function parseSRT(content: string, options?: ParserOptions): ParseResult;
 ```
-1
-00:00:01,000 --> 00:00:03,000
-Hello world
-```
+
+Parses an SRT string into cues and errors.
+
+**Parameters**
+
+| Parameter | Type            | Required | Description              |
+| --------- | --------------- | -------- | ------------------------ |
+| `content` | `string`        | Yes      | The raw SRT file content |
+| `options` | `ParserOptions` | No       | Parser behaviour options |
+
+**Returns** [`ParseResult`](#parseresult)
+
+**Throws** `TypeError` if `content` is not a string.
+
+**Behaviour**
+
+- Strips a leading UTF-8 BOM if present
+- Returns `{ cues: [], errors: [] }` for empty or whitespace-only input
+- Each block must contain a sequence number, a timestamp line, and text — missing any of these produces an error
+- Sequence numbers that are not numeric integers produce an `INVALID_CUE_ID` warning but the cue is still parsed
+- Cue IDs are preserved exactly as they appear in the file — no fallback ID is generated since SRT sequence numbers are mandatory
 
 ---
 
-### `options` (optional)
+### `ParserOptions`
 
 ```ts
 interface ParserOptions {
   stopOnFirstError?: boolean;
   allowEmptyText?: boolean;
   validateOrder?: boolean;
+  stripTags?: boolean;
 }
 ```
 
-#### `stopOnFirstError`
+All options are optional and default to `false`.
 
-* Default: `false`
-* If `true`, parsing halts immediately on the first error and returns `{ cues: [], errors }` with only the errors collected up to that point.
-
----
-
-#### `allowEmptyText`
-
-* Default: `false`
-* If `true`, cues with empty text are included in results rather than skipped with a `MISSING_TEXT` warning.
+| Option             | Default | Description                                                                   |
+| ------------------ | ------- | ----------------------------------------------------------------------------- |
+| `stopOnFirstError` | `false` | Halt parsing on the first error and return immediately with empty cues        |
+| `allowEmptyText`   | `false` | Include cues with empty text in the output instead of skipping them           |
+| `validateOrder`    | `false` | Emit an `OUT_OF_ORDER` warning when a cue starts before the previous cue ends |
+| `stripTags`        | `false` | Strip HTML-like inline tags from cue text before storing it                   |
 
 ---
 
-#### `validateOrder`
-
-* Default: `false`
-* If `true`, emits an `OUT_OF_ORDER` warning when a cue's start time begins before the previous cue's end time.
-
----
-
-## Returns
+### `ParseResult`
 
 ```ts
 interface ParseResult {
@@ -90,122 +112,200 @@ interface ParseResult {
 }
 ```
 
+Always returned, even on failure. A result with `errors` entries does not mean parsing failed entirely — check `errors[n].severity` to assess impact.
+
 ---
 
-## CaptionCue
+### `CaptionCue`
 
 ```ts
-interface CaptionCue {
+type CaptionCue = {
   id: string;
   startTime: number;
   endTime: number;
   text: string;
-}
+  settings?: VTTCueSettings;
+};
 ```
 
-All timestamps are returned in **milliseconds**.
+| Field       | Type             | Description                                                           |
+| ----------- | ---------------- | --------------------------------------------------------------------- |
+| `id`        | `string`         | The sequence number from the SRT block, preserved as a string         |
+| `startTime` | `number`         | Cue start time in integer milliseconds                                |
+| `endTime`   | `number`         | Cue end time in integer milliseconds                                  |
+| `text`      | `string`         | Cue text, optionally stripped of inline tags depending on `stripTags` |
+| `settings`  | `VTTCueSettings` | Always absent for SRT cues — SRT has no cue settings syntax           |
 
 ---
 
-## ParseError
+### `ParseError`
 
 ```ts
 interface ParseError {
   code: ParseErrorCode;
   message: string;
-  severity: "warning" | "error" | "fatal";
   cueId?: string;
   line?: number;
+  severity: "warning" | "error" | "fatal";
   rawBlock?: string;
 }
 ```
 
+| Field      | Type             | Description                                                                                 |
+| ---------- | ---------------- | ------------------------------------------------------------------------------------------- |
+| `code`     | `ParseErrorCode` | Machine-readable error code                                                                 |
+| `message`  | `string`         | Human-readable description including relevant context such as the raw timestamp that failed |
+| `cueId`    | `string`         | The sequence number associated with the error, if one was identified                        |
+| `line`     | `number`         | File-relative line number where the error occurred                                          |
+| `severity` | `string`         | Impact level — see below                                                                    |
+| `rawBlock` | `string`         | The raw block text that caused the error, useful for debugging                              |
+
+**Severity levels**
+
+| Severity  | Meaning                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| `fatal`   | Not currently emitted by `parseSRT` — SRT has no equivalent of the VTT header requirement       |
+| `error`   | The affected cue was skipped. Other cues are unaffected                                         |
+| `warning` | The affected cue was skipped or included with a note. Does not indicate data loss in most cases |
+
 ---
 
-## Error Codes
-
-| Code               | Severity | Meaning                                          |
-| ------------------ | -------- | ------------------------------------------------ |
-| INVALID_FORMAT     | error    | Cue block is missing required lines              |
-| INVALID_TIMESTAMP  | error    | Timestamp is missing, malformed, or unparseable  |
-| INVALID_TIME_RANGE | error    | Start time is greater than or equal to end time  |
-| MISSING_TEXT       | warning  | Caption text is empty                            |
-| INVALID_CUE_ID     | warning  | Cue ID is not a valid sequence number            |
-| OUT_OF_ORDER       | warning  | Cue starts before the previous cue ends          |
-
----
-
-## Behavior
-
-### Valid input
+### `ParseErrorCode`
 
 ```ts
-const result = parseSRT(file);
-console.log(result.cues);
+type ParseErrorCode =
+  | "INVALID_FORMAT"
+  | "INVALID_TIMESTAMP"
+  | "MISSING_TEXT"
+  | "INVALID_TIME_RANGE"
+  | "INVALID_CUE_ID"
+  | "OUT_OF_ORDER";
 ```
 
-Returns parsed captions.
+| Code                 | Severity  | Cause                                                                                       |
+| -------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `INVALID_FORMAT`     | `error`   | Block is missing required lines — must have at least a sequence number and a timestamp line |
+| `INVALID_TIMESTAMP`  | `error`   | Timestamp line is malformed, missing `-->`, or timestamp values could not be parsed         |
+| `INVALID_TIME_RANGE` | `error`   | Start time is equal to or greater than end time                                             |
+| `MISSING_TEXT`       | `warning` | Cue has no text content                                                                     |
+| `INVALID_CUE_ID`     | `warning` | Sequence number is not a valid integer. The cue is still parsed                             |
+| `OUT_OF_ORDER`       | `warning` | Cue starts before the previous cue ends. Only emitted when `validateOrder: true`            |
 
 ---
 
-### Invalid input handling
+## Utilities
 
-Invalid cues do NOT break the entire parse operation. Instead:
-
-* Valid cues are still returned
-* Errors are collected in `errors[]`
-* Each error includes a `severity` field — `"warning"` for recoverable issues, `"error"` for cues that must be skipped
-
----
-
-### Example output
+### `stripSRTTags`
 
 ```ts
-{
-  cues: [
-    {
-      id: "1",
-      startTime: 1000,
-      endTime: 3000,
-      text: "Hello world"
-    }
-  ],
-  errors: []
+function stripSRTTags(text: string): string;
+```
+
+Strips HTML-like inline tags from SRT cue text, returning plain text. Used internally by `parseSRT` when `stripTags: true` is set, but also exported for standalone use.
+
+SRT has no formal inline tag specification, but HTML-like tags appear widely in real-world files — most commonly `<i>`, `<b>`, `<u>`, and `<font color="...">`.
+
+The stripper removes all content between `<` and `>`, collapses multiple consecutive spaces left behind by removed tags, and trims the result.
+
+**Example**
+
+```ts
+import { stripSRTTags } from "@cue-engine/core";
+
+stripSRTTags("<i>Hello</i> world");
+// → "Hello world"
+
+stripSRTTags('<font color="red">Warning</font>');
+// → "Warning"
+
+stripSRTTags("<b>Bold</b> and <i>italic</i>");
+// → "Bold and italic"
+```
+
+Note that `stripSRTTags` is a general HTML tag stripper. It does not understand VTT-specific markup such as timestamp tags or voice spans — use [`stripVTTTags`](./parseVTT.md#stripvtttags) for VTT content.
+
+---
+
+## Error Handling
+
+The parser never throws on malformed input — all parse failures are returned as `ParseError` entries in `result.errors`. The only exception is passing a non-string as `content`, which throws a `TypeError` immediately.
+
+**Recommended pattern for consumers:**
+
+```ts
+const result = parseSRT(content);
+
+const errors = result.errors.filter((e) => e.severity === "error");
+if (errors.length > 0) {
+  // Some cues were skipped — decide whether to proceed
+  console.warn("Skipped cues:", errors);
 }
+
+const warnings = result.errors.filter((e) => e.severity === "warning");
+if (warnings.length > 0) {
+  // Non-critical issues — log and continue
+  console.warn(warnings);
+}
+
+// result.cues is safe to use
 ```
 
 ---
 
-## stopOnFirstError behavior
+## Format Notes
+
+SRT is a simpler format than VTT with fewer official features. Key differences that affect parser behaviour:
+
+- **No header** — SRT files have no required header line. The first block is expected to start with a sequence number
+- **No cue settings** — SRT timestamps do not support positioning settings. The `settings` field on `CaptionCue` is never populated by `parseSRT`
+- **Comma as millisecond separator** — SRT timestamps use a comma (`00:00:01,000`) while VTT uses a dot. Both separators are accepted by `parseTimestamp`
+- **Mandatory sequence numbers** — every block must start with a sequence number. Non-numeric IDs produce an `INVALID_CUE_ID` warning but do not prevent the cue from being parsed
+- **No special block types** — SRT has no equivalent of VTT's `NOTE`, `STYLE`, or `REGION` blocks
+
+---
+
+## Contributor Notes
+
+### File locations
+
+| File                          | Purpose                                                        |
+| ----------------------------- | -------------------------------------------------------------- |
+| `src/parsers/parseSRT.ts`     | Main parser function                                           |
+| `src/utils/parseTimestamp.ts` | Shared timestamp parser used by both `parseSRT` and `parseVTT` |
+| `src/utils/stripSRTTags.ts`   | SRT inline tag stripper — exported                             |
+| `src/types/CaptionCue.ts`     | Output cue type                                                |
+| `src/types/ParseResult.ts`    | Parser return type                                             |
+| `src/types/ParseError.ts`     | Error type and error code union                                |
+| `src/types/ParserOptions.ts`  | Options type shared by both parsers                            |
+
+### Block processing pipeline
+
+For each block in the file, the parser runs these steps in order:
+
+1. Validate the block has at least two lines — a sequence number and a timestamp line
+2. Extract and validate the sequence number. Emit `INVALID_CUE_ID` warning if not numeric, but continue
+3. Extract the timestamp line and split on `-->`
+4. Validate both start and end timestamp strings are present
+5. Parse start and end timestamps into integer milliseconds
+6. Validate start time is less than end time
+7. Optionally validate cue order against the previous cue
+8. Assemble cue text from remaining lines, optionally stripping inline tags
+9. Validate cue text is non-empty
+10. Push the completed cue to the output array
+
+Any step from 4 onward that fails pushes an error and skips the current cue via `continue`, unless `stopOnFirstError` is set.
+
+### Line number tracking
+
+File-relative line numbers are computed before the main loop by mapping each block to its starting line in the file. Block-level errors use `blockStartLine`. Timestamp errors use `blockStartLine + 1` since the timestamp is always on the second line of a valid SRT block.
+
+### `haltIfNeeded` helper
+
+Both `parseSRT` and `parseVTT` use a shared internal pattern for `stopOnFirstError` handling:
 
 ```ts
-parseSRT(content, { stopOnFirstError: true });
+const haltIfNeeded = (): ParseResult | null =>
+  stopOnFirstError ? { cues: [], errors } : null;
 ```
 
-When `stopOnFirstError` is `true`:
-
-* Parsing halts immediately on the first error or warning
-* Returns `{ cues: [], errors }` — no partial cue output
-* Useful for strict validation pipelines where partial results are not acceptable
-
----
-
-## Design Principles
-
-* No runtime dependencies
-* No DOM or UI coupling
-* Deterministic output
-* Fault-tolerant parsing — invalid cues are skipped and reported, not thrown
-* Throws `TypeError` on programmer errors (non-string input)
-* Designed for real-time caption rendering systems
-
----
-
-## Notes
-
-This parser is optimized for use in real-time video caption systems where:
-
-* partial file corruption is expected
-* playback must not fail due to bad subtitle data
-* downstream rendering systems require clean cue streams
-```
+Called after every `errors.push()`. If it returns a value, the parser returns immediately. This avoids repeating the `if (stopOnFirstError) return` pattern at every error site.
