@@ -2,6 +2,7 @@ export { parseSRT } from "./parsers/parseSRT.js";
 export { parseVTT } from "./parsers/parseVTT.js";
 export { stripVTTTags } from "./utils/stripVTTTags.js";
 export { stripSRTTags } from "./utils/stripSRTTags.js";
+export { enrichCues } from "./preparation/enrichCues.js";
 export { TimelineController } from "./engine/TimelineController.js";
 
 export type { CaptionCue } from "./types/CaptionCue.js";
