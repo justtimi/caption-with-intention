@@ -288,12 +288,19 @@ For each block in the file, the parser runs these steps in order:
 4. Validate both start and end timestamp strings are present
 5. Parse start and end timestamps into integer milliseconds
 6. Validate start time is less than end time
-7. Optionally validate cue order against the previous cue
-8. Assemble cue text from remaining lines, optionally stripping inline tags
-9. Validate cue text is non-empty
-10. Push the completed cue to the output array
+7. Assemble cue text from remaining lines, optionally stripping inline tags
+8. Validate cue text is non-empty
+9. Push the completed cue and the blockIndex to the output array
 
 Any step from 4 onward that fails pushes an error and skips the current cue via `continue`, unless `stopOnFirstError` is set.
+
+### Sorting and order validation
+
+In order for the timeline controller to implement the cue data received correctly, the ouput from the parser has to be sorted. In the post sorting, cues are sorted by `startTime` in ascending order, with the Schwartzian transform, with the `blockIndex` as the tie-breaker.
+
+As a result of this, the report gotten from `validateOrder` is now wrong, because now the cues are in chronological order and the check in the loop works in file order, which is meaningless after sorting, so the check only makes sense as a post-sort pass.
+So we shift the validation check from inside the loop to after the sorting.
+Then we return the completed cues array and errors, if any, in an object.
 
 ### Line number tracking
 
