@@ -38,10 +38,25 @@ export class TimelineController implements TimelineInterface {
     if (!activeCue && !this.previousCue) {
       cuePhase = "idle";
     }
+
+    let visibleWordIndex = 0;
+    if (activeCue) {
+      visibleWordIndex = Math.floor(
+        ((currentTime - activeCue.startTime) /
+          (activeCue.endTime - activeCue.startTime)) *
+          activeCue.words.length,
+      );
+    }
+    if (this.previousCue) {
+      if (cuePhase === "exiting") {
+        visibleWordIndex = this.previousCue.words.length;
+      }
+    }
+
     const state: CaptionRenderState = {
       activeCue,
       previousCue: this.previousCue,
-      visibleWordIndex: 0,
+      visibleWordIndex,
       cuePhase,
     };
     this.callback(state);
