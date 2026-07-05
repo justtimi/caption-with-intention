@@ -583,6 +583,18 @@ describe("OUT_OF_ORDER", () => {
     );
     expect(result.errors.some((e) => e.code === "OUT_OF_ORDER")).toBe(false);
   });
+  it("cues is empty when stopOnFirstError and validateOrder are set to true and code does not pass", () => {
+    const content = makeVTT([
+      "1\n00:00:01.000 --> 00:00:03.000\nFirst",
+      "1\n00:00:02.000 --> 00:00:04.000\nSecond",
+    ]);
+    const result = parseVTT(content, {
+      stopOnFirstError: true,
+      validateOrder: true,
+    });
+    expect(result.cues).toEqual([]);
+    expect(result.errors.some((e) => e.code === "OUT_OF_ORDER")).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -763,6 +775,25 @@ describe("stripTags option", () => {
       makeVTT(["00:00:01.000 --> 00:00:03.000\n<b>Hello</b>"]),
     );
     expect(result.cues[0]?.text).toBe("<b>Hello</b>");
+  });
+});
+
+describe("sorting", () => {
+  it("sorts cues by startTime regardless of file order", () => {
+    const result = parseVTT( makeVTT([
+        "00:00:05.000 --> 00:00:06.000\nSecond",
+        "00:00:01.000 --> 00:00:02.000\nFirst",
+      ]));
+
+    expect(result.cues.map((c) => c.text)).toEqual(["First", "Second"]);
+  });
+  it("uses blockIndex as tiebreaker when start times are identical", () => {
+ const result = parseVTT( makeVTT([
+        "00:00:01.000 --> 00:00:03.000\nFirst Cue",
+        "00:00:01.000 --> 00:00:04.000\nSecond Cue",
+      ]));
+
+    expect(result.cues.map((c) => c.text)).toEqual(["First Cue", "Second Cue"]);
   });
 });
 

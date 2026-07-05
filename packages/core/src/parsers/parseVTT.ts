@@ -26,7 +26,6 @@ export function parseVTT(
     return { cues: [], errors: [] };
   }
 
-  const cues: CaptionCue[] = [];
   const errors: ParseError[] = [];
 
   const haltIfNeeded = (): ParseResult | null =>
@@ -58,6 +57,8 @@ export function parseVTT(
     currentLine += block.split(/\r?\n/).length + 1;
     return start;
   });
+
+  let tempArray: { cue: CaptionCue; blockIndex: number }[] = [];
 
   for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
     const block = blocks[blockIndex];
@@ -196,23 +197,6 @@ export function parseVTT(
       continue;
     }
 
-    if (validateOrder && cues.length > 0) {
-      const lastCue = cues[cues.length - 1];
-      if (lastCue !== undefined && startTime < lastCue.endTime) {
-        errors.push({
-          code: "OUT_OF_ORDER",
-          message: `Cue ${id} starts before previous cue ends`,
-          cueId: id,
-          line: blockStartLine + index,
-          rawBlock: trimmedBlock,
-          severity: "warning",
-        });
-
-        const halted = haltIfNeeded();
-        if (halted) return halted;
-      }
-    }
-
     const rawText = blockLines
       .slice(index + 1)
       .join("\n")
@@ -234,14 +218,53 @@ export function parseVTT(
       continue;
     }
 
-    cues.push({
-      id: id ?? `cue-${blockIndex}`,
-      startTime,
-      endTime,
-      text,
-      ...(settings !== undefined && { settings }),
+    tempArray.push({
+      cue: {
+        id: id ?? `cue-${blockIndex}`,
+        startTime,
+        endTime,
+        text,
+        ...(settings !== undefined && { settings }),
+      },
+      blockIndex,
     });
   }
 
-  return { cues, errors };
+  tempArray.sort((a, b) => {
+    const diff = a.cue.startTime - b.cue.startTime;
+
+    if (diff !== 0) return diff;
+    return a.blockIndex - b.blockIndex;
+  });
+
+  if (validateOrder && tempArray.length > 0) {
+    for (let i = 0; i < tempArray.length; i++) {
+      const currentCue = tempArray[i];
+      if (currentCue === undefined) continue;
+      const prevCue = tempArray[i - 1];
+      const trimmedBlock = blocks[currentCue.blockIndex];
+      const blockStartLine = blockStartLines[currentCue.blockIndex] ?? 0;
+      const id = currentCue.cue.id;
+
+      if (
+        prevCue !== undefined &&
+        currentCue.cue.startTime < prevCue.cue.endTime
+      ) {
+        errors.push({
+          code: "OUT_OF_ORDER",
+          message: `Cue ${id} starts before previous cue ends`,
+          cueId: id,
+          line: blockStartLine,
+          rawBlock: trimmedBlock,
+          severity: "warning",
+        });
+
+        if (stopOnFirstError) return { cues: [], errors };
+      }
+    }
+  }
+
+  const result = tempArray.map((temp) => temp.cue);
+
+  return { cues: result, errors };
 }
