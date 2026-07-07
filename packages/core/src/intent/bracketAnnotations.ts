@@ -1,3 +1,9 @@
+// Environmental sounds ([door slams], [glass shatters]) and music descriptors
+// ([upbeat music playing]) are intentionally excluded from this lookup table.
+// These map to the environment dimension - spatial origin and atmospheric context -
+// which is reserved for a future phase. Only speech delivery annotations are
+// handled here.
+
 import type { SignalIntentState } from "./signals.js";
 
 export const bracketAnnotations: Record<string, SignalIntentState[]> = {
