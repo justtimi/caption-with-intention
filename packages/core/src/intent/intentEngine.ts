@@ -68,6 +68,24 @@ export const inferIntent = (text: string): IntentState => {
     }
   }
 
+  const questionMarkRegex = /\?/;
+  const exclamationMarkRegex = /!/;
+  const multipleExclamationMarkRegex = /!{3,}/;
+  const ellipsisRegex = /\.{3}/;
+
+  if (questionMarkRegex.test(cleanedText)) {
+    signals.push({ dimension: "pace", value: "slow", confidence: 0.55 });
+  }
+  if (multipleExclamationMarkRegex.test(cleanedText)) {
+    signals.push({ dimension: "intensity", value: "loud", confidence: 0.75 });
+    signals.push({ dimension: "pace", value: "fast", confidence: 0.75 });
+  } else if (exclamationMarkRegex.test(cleanedText)) {
+    signals.push({ dimension: "intensity", value: "loud", confidence: 0.7 });
+  }
+  if (ellipsisRegex.test(cleanedText)) {
+    signals.push({ dimension: "pace", value: "slow", confidence: 0.7 });
+  }
+
   return {
     intensity: "normal",
     pace: "normal",
