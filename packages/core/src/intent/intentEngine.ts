@@ -86,6 +86,21 @@ export const inferIntent = (text: string): IntentState => {
     signals.push({ dimension: "pace", value: "slow", confidence: 0.7 });
   }
 
+  const bursts = cleanedText
+    .trim()
+    .split(/[.!]/)
+    .filter((b) => b.trim().length > 0);
+  let length = 0;
+
+  for (const burst of bursts) {
+    length += presplit(burst.trim()).length;
+  }
+  const averageLength = length / bursts.length;
+
+  if (bursts.length > 1 && averageLength < 3) {
+    signals.push({ dimension: "pace", value: "fast", confidence: 0.7 });
+  }
+
   return {
     intensity: "normal",
     pace: "normal",
