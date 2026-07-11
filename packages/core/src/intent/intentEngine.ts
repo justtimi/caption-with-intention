@@ -6,27 +6,30 @@ import type { SignalIntentState } from "./signals.js";
 
 export const inferIntent = (text: string): IntentState => {
   const signals: SignalIntentState[] = [];
+  const words = presplit(text);
 
+  const emphasizedWords: string[] = [];
   const regex = /\[(.*?)\]/g;
+  const cleanedText = text.replace(/\[+/g, "[").replace(/\]+/g, "]");
 
-  for (const match of text.matchAll(regex)) {
+  for (const match of cleanedText.matchAll(regex)) {
     const word = match[1]?.toLowerCase().trim();
     let intentWord: SignalIntentState[] = [];
-    let modifier: number = 0;
-    let multiModifier: number | undefined = 0;
-    let totalAdjustment: number = 0;
+    let modifier = 0;
+    let multiModifier = 0;
+    let totalAdjustment = 0;
 
     if (word) {
-      const words = presplit(word);
+      const matchWords = presplit(word);
 
-      for (let i = 0; i < words.length; i++) {
-        const currentWord = words[i];
-        const nextWord = words[i + 1];
+      for (let i = 0; i < matchWords.length; i++) {
+        const currentWord = matchWords[i];
+        const nextWord = matchWords[i + 1];
         if (currentWord === undefined) continue;
 
         if (multiWordModifiers[`${currentWord.word} ${nextWord?.word}`]) {
           multiModifier =
-            multiWordModifiers[`${currentWord.word} ${nextWord?.word}`];
+            multiWordModifiers[`${currentWord.word} ${nextWord?.word}`] ?? 0;
           i++;
           continue;
         }
@@ -47,6 +50,21 @@ export const inferIntent = (text: string): IntentState => {
           ),
         })),
       );
+    }
+  }
+
+  const lettersOnly = text.replace(/[^a-zA-Z]/g, "");
+  if (lettersOnly === lettersOnly.toUpperCase() && lettersOnly.length >= 2) {
+    signals.push({ dimension: "intensity", value: "loud", confidence: 0.8 });
+  } else {
+    for (let i = 0; i < words.length; i++) {
+      const emphasizedWord = words[i];
+      if (!emphasizedWord) continue;
+      if (
+        emphasizedWord.word.length >= 2 &&
+        emphasizedWord.word === emphasizedWord.word.toUpperCase()
+      )
+        emphasizedWords.push(emphasizedWord.word);
     }
   }
 
