@@ -1,6 +1,10 @@
 import { presplit } from "../preparation/presplit.js";
 import type { IntentState } from "../types/IntentState.js";
 import { bracketAnnotations } from "./bracketAnnotations.js";
+import { hesitation, multiWordHesitation } from "./lexicons/hesitation.js";
+import { loud, multiWordLoud } from "./lexicons/loud.js";
+import { urgency } from "./lexicons/urgency.js";
+import { whisper } from "./lexicons/whisper.js";
 import { modifiers, multiWordModifiers } from "./modifiers.js";
 import type { SignalIntentState } from "./signals.js";
 
@@ -10,7 +14,7 @@ export const inferIntent = (text: string): IntentState => {
 
   const emphasizedWords: string[] = [];
   const regex = /\[(.*?)\]/g;
-  const cleanedText = text.replace(/\[+/g, "[").replace(/\]+/g, "]");
+  const cleanedText = text.replace(/\[+/g, "[").replace(/\]+/g, "]").trim();
 
   for (const match of cleanedText.matchAll(regex)) {
     const word = match[1]?.toLowerCase().trim();
@@ -86,10 +90,7 @@ export const inferIntent = (text: string): IntentState => {
     signals.push({ dimension: "pace", value: "slow", confidence: 0.7 });
   }
 
-  const bursts = cleanedText
-    .trim()
-    .split(/[.!]/)
-    .filter((b) => b.trim().length > 0);
+  const bursts = cleanedText.split(/[.!]/).filter((b) => b.trim().length > 0);
   let length = 0;
 
   for (const burst of bursts) {
@@ -99,6 +100,61 @@ export const inferIntent = (text: string): IntentState => {
 
   if (bursts.length > 1 && averageLength < 3) {
     signals.push({ dimension: "pace", value: "fast", confidence: 0.7 });
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    const currentWord = words[i]?.word.toLowerCase();
+    if (!currentWord) continue;
+    const nextWord = words[i + 1]?.word.toLowerCase();
+
+    if (multiWordHesitation[`${currentWord} ${nextWord}`]) {
+      signals.push({
+        dimension: "pace",
+        value: "slow",
+        confidence: multiWordHesitation[`${currentWord} ${nextWord}`] ?? 0,
+      });
+      i++;
+      continue;
+    }
+    if (hesitation[currentWord]) {
+      signals.push({
+        dimension: "pace",
+        value: "slow",
+        confidence: hesitation[currentWord],
+      });
+    }
+    if (multiWordLoud[`${currentWord} ${nextWord}`]) {
+      signals.push({
+        dimension: "intensity",
+        value: "loud",
+        confidence: multiWordLoud[`${currentWord} ${nextWord}`] ?? 0,
+      });
+      i++;
+      continue;
+    }
+    if (loud[currentWord]) {
+      signals.push({
+        dimension: "intensity",
+        value: "loud",
+        confidence: loud[currentWord],
+      });
+    }
+
+    if (urgency[currentWord]) {
+      signals.push({
+        dimension: "pace",
+        value: "fast",
+        confidence: urgency[currentWord],
+      });
+    }
+
+    if (whisper[currentWord]) {
+      signals.push({
+        dimension: "intensity",
+        value: "whisper",
+        confidence: whisper[currentWord],
+      });
+    }
   }
 
   return {
