@@ -66,13 +66,13 @@ describe("enrich cues", () => {
       { word: "subscribe!" },
     ]);
   });
-  it("the default intent has the right shape and values", () => {
+  it("the intent has the right shape and values", () => {
     const enrichedCues = enrichCues([VALID_CUE_3]);
     expect(enrichedCues[0].intent).toEqual({
-      intensity: "normal",
+      intensity: "loud",
       pace: "normal",
-      confidence: 0,
-      source: "default",
+      confidence: 1,
+      source: "text",
     });
   });
   it("an empty array input", () => {
