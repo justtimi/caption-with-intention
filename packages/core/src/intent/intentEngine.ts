@@ -108,53 +108,45 @@ export const inferIntent = (text: string): IntentState => {
   }
 
   for (let i = 0; i < words.length; i++) {
-    const wordsCopy = words;
-    const currentWord = words[i]?.word.toLowerCase();
-    if (!currentWord) continue;
-    const nextWord = words[i + 1]?.word.toLowerCase();
+    for (let end = words.length; end > i; end--) {
+      const sentence = sentenceMaker(words, i, end);
+      if (hesitation[sentence]) {
+        signals.push({
+          dimension: "pace",
+          value: "slow",
+          confidence: hesitation[sentence] ?? 0,
+        });
+        i += end - i - 1;
+        break;
+      }
+      if (loud[sentence]) {
+        signals.push({
+          dimension: "intensity",
+          value: "loud",
+          confidence: loud[sentence] ?? 0,
+        });
+        i += end - i - 1;
+        break;
+      }
+      if (urgency[sentence]) {
+        signals.push({
+          dimension: "pace",
+          value: "fast",
+          confidence: urgency[sentence] ?? 0,
+        });
+        i += end - i - 1;
+        break;
+      }
+      if (whisper[sentence]) {
+        signals.push({
+          dimension: "intensity",
+          value: "whisper",
+          confidence: whisper[sentence] ?? 0,
+        });
 
-    if (hesitation[sentenceMaker(wordsCopy)]) {
-      signals.push({
-        dimension: "pace",
-        value: "slow",
-        confidence: hesitation[`${currentWord} ${nextWord}`] ?? 0,
-      });
-      i++;
-      continue;
-    } else {
-      wordsCopy.shift();
-    }
-    if (loud[`${currentWord} ${nextWord}`]) {
-      signals.push({
-        dimension: "intensity",
-        value: "loud",
-        confidence: loud[`${currentWord} ${nextWord}`] ?? 0,
-      });
-      i++;
-      continue;
-    }
-    if (loud[currentWord]) {
-      signals.push({
-        dimension: "intensity",
-        value: "loud",
-        confidence: loud[currentWord],
-      });
-    }
-
-    if (urgency[currentWord]) {
-      signals.push({
-        dimension: "pace",
-        value: "fast",
-        confidence: urgency[currentWord],
-      });
-    }
-
-    if (whisper[currentWord]) {
-      signals.push({
-        dimension: "intensity",
-        value: "whisper",
-        confidence: whisper[currentWord],
-      });
+        i += end - i - 1;
+        break;
+      }
     }
   }
 
