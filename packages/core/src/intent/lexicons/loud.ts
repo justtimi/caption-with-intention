@@ -6,11 +6,7 @@ export const loud: Record<string, number> = {
   yelled: 0.7,
   roar: 0.7,
   roared: 0.7,
-
   bellow: 0.7,
   explode: 0.7,
-};
-
-export const multiWordLoud: Record<string, number> = {
   "cry out": 0.7,
 };

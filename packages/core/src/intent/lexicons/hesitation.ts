@@ -8,9 +8,6 @@ export const hesitation: Record<string, number> = {
   perhaps: 0.65,
   actually: 0.65,
   honestly: 0.65,
-};
-
-export const multiWordHesitation: Record<string, number> = {
   "i guess": 0.65,
   "i think": 0.65,
   "let me see": 0.65,

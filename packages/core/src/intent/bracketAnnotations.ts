@@ -4,7 +4,7 @@
 // which is reserved for a future phase. Only speech delivery annotations are
 // handled here.
 
-import type { SignalIntentState } from "./signals.js";
+import type { SignalIntentState } from "./types/signals.js";
 
 export const bracketAnnotations: Record<string, SignalIntentState[]> = {
   whispering: [

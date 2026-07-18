@@ -1,12 +1,12 @@
 import { presplit } from "../preparation/presplit.js";
 import type { IntentState } from "../types/IntentState.js";
 import { bracketAnnotations } from "./bracketAnnotations.js";
-import { hesitation, multiWordHesitation } from "./lexicons/hesitation.js";
-import { loud, multiWordLoud } from "./lexicons/loud.js";
+import { hesitation } from "./lexicons/hesitation.js";
+import { loud } from "./lexicons/loud.js";
 import { urgency } from "./lexicons/urgency.js";
 import { whisper } from "./lexicons/whisper.js";
 import { modifiers, multiWordModifiers } from "./modifiers.js";
-import type { SignalIntentState } from "./signals.js";
+import type { SignalIntentState } from "./types/signals.js";
 
 export const inferIntent = (text: string): IntentState => {
   const signals: SignalIntentState[] = [];
@@ -107,11 +107,11 @@ export const inferIntent = (text: string): IntentState => {
     if (!currentWord) continue;
     const nextWord = words[i + 1]?.word.toLowerCase();
 
-    if (multiWordHesitation[`${currentWord} ${nextWord}`]) {
+    if (hesitation[`${currentWord} ${nextWord}`]) {
       signals.push({
         dimension: "pace",
         value: "slow",
-        confidence: multiWordHesitation[`${currentWord} ${nextWord}`] ?? 0,
+        confidence: hesitation[`${currentWord} ${nextWord}`] ?? 0,
       });
       i++;
       continue;
@@ -123,11 +123,11 @@ export const inferIntent = (text: string): IntentState => {
         confidence: hesitation[currentWord],
       });
     }
-    if (multiWordLoud[`${currentWord} ${nextWord}`]) {
+    if (loud[`${currentWord} ${nextWord}`]) {
       signals.push({
         dimension: "intensity",
         value: "loud",
-        confidence: multiWordLoud[`${currentWord} ${nextWord}`] ?? 0,
+        confidence: loud[`${currentWord} ${nextWord}`] ?? 0,
       });
       i++;
       continue;
@@ -157,10 +157,90 @@ export const inferIntent = (text: string): IntentState => {
     }
   }
 
+  let intensityAgree = 0;
+  let intensityDisagree = 0;
+  let paceAgree = 0;
+  let paceDisagree = 0;
+  let paceNum = 0;
+  let intensityNum = 0;
+  let frequency: Record<string, number> = {};
+
+  for (let i = 0; i < signals.length; i++) {
+    const signal = signals[i];
+    const nextSignal = signals[i + 1];
+    if (!signal) continue;
+    if (!nextSignal) continue;
+    if (signal.dimension === "intensity") {
+      intensityNum++;
+      frequency[signal.value] = (frequency[signal.value] || 0) + 1;
+      intensityAgree = Math.max(
+        frequency[signal.value] || 0,
+        frequency[nextSignal.value] || 0,
+      );
+      intensityDisagree = Math.min(
+        frequency[signal.value] || 0,
+        frequency[nextSignal.value] || 0,
+      );
+    }
+  }
+  for (let i = 0; i < signals.length; i++) {
+    const signal = signals[i];
+    const nextSignal = signals[i + 1];
+    if (!signal) continue;
+    if (!nextSignal) continue;
+    if (signal.dimension === "pace") {
+      paceNum++;
+      frequency[signal.value] = (frequency[signal.value] || 0) + 1;
+      paceAgree = Math.max(
+        frequency[signal.value] || 0,
+        frequency[nextSignal.value] || 0,
+      );
+      paceDisagree = Math.min(
+        frequency[signal.value] || 0,
+        frequency[nextSignal.value] || 0,
+      );
+    }
+  }
+
+  const lambda = 1;
+  const cBase = 0.7;
+  let cFinalIntensity = 0;
+  let cFinalPace = 0;
+  let cFinal = 0;
+
+  if (intensityNum > 0) {
+    const intensityRatio = (intensityAgree - intensityDisagree) / intensityNum;
+    cFinalIntensity = cBase * (1 + lambda * intensityRatio);
+    cFinalIntensity = Math.max(0, Math.min(1, cFinalIntensity));
+  }
+
+  if (paceNum > 0) {
+    const paceRatio = (paceAgree - paceDisagree) / paceNum;
+    cFinalPace = cBase * (1 + lambda * paceRatio);
+    cFinalPace = Math.max(0, Math.min(1, cFinalPace));
+  }
+
+  if (paceNum === 0) {
+    cFinal = cFinalIntensity;
+  } else if (intensityNum === 0) {
+    cFinal = cFinalPace;
+  } else {
+    cFinal = (cFinalIntensity + cFinalPace) / 2;
+  }
+
+  if (!signals) {
+    return {
+      intensity: "normal",
+      pace: "normal",
+      confidence: 0,
+      source: "default",
+    };
+  }
+
   return {
     intensity: "normal",
     pace: "normal",
-    confidence: 0,
-    source: "default",
+    confidence: cFinal,
+    source: "text",
   };
 };
