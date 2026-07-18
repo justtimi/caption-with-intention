@@ -1,11 +1,14 @@
+export type IntensityValue = "whisper" | "normal" | "loud";
+export type PaceValue = "slow" | "normal" | "fast";
+
 type SignalIntensity = {
   dimension: "intensity";
-  value: "whisper" | "normal" | "loud";
+  value: IntensityValue;
   confidence: number;
 };
 type SignalPace = {
   dimension: "pace";
-  value: "slow" | "normal" | "fast";
+  value: PaceValue;
   confidence: number;
 };
 

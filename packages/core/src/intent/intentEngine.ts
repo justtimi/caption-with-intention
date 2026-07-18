@@ -1,12 +1,17 @@
 import { presplit } from "../preparation/presplit.js";
 import type { IntentState } from "../types/IntentState.js";
+import { sentenceMaker } from "../utils/sentence.js";
 import { bracketAnnotations } from "./bracketAnnotations.js";
 import { hesitation } from "./lexicons/hesitation.js";
 import { loud } from "./lexicons/loud.js";
 import { urgency } from "./lexicons/urgency.js";
 import { whisper } from "./lexicons/whisper.js";
 import { modifiers, multiWordModifiers } from "./modifiers.js";
-import type { SignalIntentState } from "./types/signals.js";
+import type {
+  IntensityValue,
+  PaceValue,
+  SignalIntentState,
+} from "./types/signals.js";
 
 export const inferIntent = (text: string): IntentState => {
   const signals: SignalIntentState[] = [];
@@ -103,11 +108,12 @@ export const inferIntent = (text: string): IntentState => {
   }
 
   for (let i = 0; i < words.length; i++) {
+    const wordsCopy = words;
     const currentWord = words[i]?.word.toLowerCase();
     if (!currentWord) continue;
     const nextWord = words[i + 1]?.word.toLowerCase();
 
-    if (hesitation[`${currentWord} ${nextWord}`]) {
+    if (hesitation[sentenceMaker(wordsCopy)]) {
       signals.push({
         dimension: "pace",
         value: "slow",
@@ -115,13 +121,8 @@ export const inferIntent = (text: string): IntentState => {
       });
       i++;
       continue;
-    }
-    if (hesitation[currentWord]) {
-      signals.push({
-        dimension: "pace",
-        value: "slow",
-        confidence: hesitation[currentWord],
-      });
+    } else {
+      wordsCopy.shift();
     }
     if (loud[`${currentWord} ${nextWord}`]) {
       signals.push({
@@ -157,66 +158,112 @@ export const inferIntent = (text: string): IntentState => {
     }
   }
 
-  let intensityAgree = 0;
-  let intensityDisagree = 0;
-  let paceAgree = 0;
-  let paceDisagree = 0;
+  if (signals.length === 0) {
+    return {
+      intensity: "normal",
+      pace: "normal",
+      confidence: 0,
+      source: "default",
+    };
+  }
+
+  let intensitySum = 0;
+  let paceSum = 0;
   let paceNum = 0;
   let intensityNum = 0;
-  let frequency: Record<string, number> = {};
+
+  let frequencyIntensity: Record<string, { count: number; totalConf: number }> =
+    {};
+  let frequencyPace: Record<string, { count: number; totalConf: number }> = {};
 
   for (let i = 0; i < signals.length; i++) {
     const signal = signals[i];
-    const nextSignal = signals[i + 1];
     if (!signal) continue;
-    if (!nextSignal) continue;
+
     if (signal.dimension === "intensity") {
       intensityNum++;
-      frequency[signal.value] = (frequency[signal.value] || 0) + 1;
-      intensityAgree = Math.max(
-        frequency[signal.value] || 0,
-        frequency[nextSignal.value] || 0,
-      );
-      intensityDisagree = Math.min(
-        frequency[signal.value] || 0,
-        frequency[nextSignal.value] || 0,
-      );
+      intensitySum += signal.confidence;
+      if (!frequencyIntensity[signal.value]) {
+        frequencyIntensity[signal.value] = { count: 0, totalConf: 0 };
+      }
+      const intensityEntry = frequencyIntensity[signal.value]!;
+      intensityEntry.count++;
+      intensityEntry.totalConf += signal.confidence;
     }
-  }
-  for (let i = 0; i < signals.length; i++) {
-    const signal = signals[i];
-    const nextSignal = signals[i + 1];
-    if (!signal) continue;
-    if (!nextSignal) continue;
+
     if (signal.dimension === "pace") {
       paceNum++;
-      frequency[signal.value] = (frequency[signal.value] || 0) + 1;
-      paceAgree = Math.max(
-        frequency[signal.value] || 0,
-        frequency[nextSignal.value] || 0,
-      );
-      paceDisagree = Math.min(
-        frequency[signal.value] || 0,
-        frequency[nextSignal.value] || 0,
-      );
+      paceSum += signal.confidence;
+      if (!frequencyPace[signal.value]) {
+        frequencyPace[signal.value] = { count: 0, totalConf: 0 };
+      }
+      const paceEntry = frequencyPace[signal.value]!;
+      paceEntry.count += 1;
+      paceEntry.totalConf += signal.confidence;
     }
   }
 
+  let intensity: IntensityValue = "normal";
+  let intensityAgree = 0;
+
+  if (intensityNum > 0) {
+    let maxCount = -1;
+    let maxConf = -1;
+
+    for (const value in frequencyIntensity) {
+      const current = frequencyIntensity[value]!;
+      if (
+        current.count > maxCount ||
+        (current.count === maxCount && current.totalConf > maxConf)
+      ) {
+        maxCount = current.count;
+        maxConf = current.totalConf;
+        intensity = value as IntensityValue;
+      }
+    }
+    intensityAgree = maxCount;
+  }
+
+  let pace: PaceValue = "normal";
+  let paceAgree = 0;
+
+  if (paceNum > 0) {
+    let maxCount = -1;
+    let maxConf = -1;
+
+    for (const value in frequencyPace) {
+      const current = frequencyPace[value]!;
+      if (
+        current.count > maxCount ||
+        (current.count === maxCount && current.totalConf > maxConf)
+      ) {
+        maxCount = current.count;
+        maxConf = current.totalConf;
+        pace = value as PaceValue;
+      }
+    }
+    paceAgree = maxCount;
+  }
+
+  const intensityDisagree = intensityNum - intensityAgree;
+  const paceDisagree = paceNum - paceAgree;
+
   const lambda = 1;
-  const cBase = 0.7;
+  const cBaseIntensity = intensityNum > 0 ? intensitySum / intensityNum : 0;
+  const cBasePace = paceNum > 0 ? paceSum / paceNum : 0;
   let cFinalIntensity = 0;
   let cFinalPace = 0;
   let cFinal = 0;
 
   if (intensityNum > 0) {
     const intensityRatio = (intensityAgree - intensityDisagree) / intensityNum;
-    cFinalIntensity = cBase * (1 + lambda * intensityRatio);
+    cFinalIntensity = cBaseIntensity * (1 + lambda * intensityRatio);
     cFinalIntensity = Math.max(0, Math.min(1, cFinalIntensity));
   }
 
   if (paceNum > 0) {
     const paceRatio = (paceAgree - paceDisagree) / paceNum;
-    cFinalPace = cBase * (1 + lambda * paceRatio);
+    cFinalPace = cBasePace * (1 + lambda * paceRatio);
     cFinalPace = Math.max(0, Math.min(1, cFinalPace));
   }
 
@@ -228,19 +275,11 @@ export const inferIntent = (text: string): IntentState => {
     cFinal = (cFinalIntensity + cFinalPace) / 2;
   }
 
-  if (!signals) {
-    return {
-      intensity: "normal",
-      pace: "normal",
-      confidence: 0,
-      source: "default",
-    };
-  }
-
   return {
-    intensity: "normal",
-    pace: "normal",
+    intensity,
+    pace,
     confidence: cFinal,
+    ...(emphasizedWords.length > 0 && { emphasizedWords }),
     source: "text",
   };
 };
