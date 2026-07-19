@@ -1,3 +1,4 @@
+import { reducedMotionInterceptor } from "../reducedMotionInterceptor.js";
 import type {
   CaptionRenderState,
   CuePhase,
@@ -53,12 +54,13 @@ export class TimelineController implements TimelineInterface {
       }
     }
 
-    const state: CaptionRenderState = {
+    const state: CaptionRenderState = reducedMotionInterceptor({
       activeCue,
       previousCue: this.previousCue,
       visibleWordIndex,
       cuePhase,
-    };
+      reduceMotion: false,
+    });
     this.callback(state);
     this.previousCue = activeCue;
     this.rafId = requestAnimationFrame(() => this.tick());

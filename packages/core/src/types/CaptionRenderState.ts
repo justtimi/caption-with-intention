@@ -7,4 +7,5 @@ export type CaptionRenderState = {
   previousCue: EnrichedCue | null;
   visibleWordIndex: number;
   cuePhase: CuePhase;
+  reduceMotion: boolean;
 };
