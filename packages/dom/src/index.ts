@@ -1,0 +1,1 @@
+export const ENGINE_STATUS:string = "It works"
