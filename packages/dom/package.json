@@ -5,8 +5,8 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     }
   },
   "files": [
@@ -30,6 +30,9 @@
   ],
   "author": "AFOLAYAN Timileyin Israel",
   "license": "MIT",
+  "dependencies": {
+    "@cue-engine/core": "workspace:*"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "4.1.9",
     "tsdown": "^0.22.3",
