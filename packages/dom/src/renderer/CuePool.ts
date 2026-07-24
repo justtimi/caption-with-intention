@@ -1,4 +1,4 @@
-import { createCueView, type CueView } from "./cueView.js";
+import { createCueView, type CueView } from "./CueView.js";
 
 interface CueNodePool {
   acquire: () => CueView;
@@ -7,7 +7,7 @@ interface CueNodePool {
 
 export const createCueNodePool = (
   container: HTMLElement,
-  poolSize: number,
+  poolSize = 2,
 ): CueNodePool => {
   const views: CueView[] = [];
   for (let i = 0; i < poolSize; i++) {
@@ -22,7 +22,9 @@ export const createCueNodePool = (
           return view;
         }
       }
-      throw new Error("No available views at the time");
+      throw new Error(
+        "CueNodePool exhausted. All CueView instances are currently in use.",
+      );
     },
     release(view: CueView) {
       view.clear();

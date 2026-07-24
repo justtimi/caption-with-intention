@@ -1,4 +1,4 @@
-import { createCueView } from "../src/cueView.js";
+import { createCueView } from "../src/renderer/CueView.js";
 import { describe, it, expect } from "vitest";
 
-describe(" ", () => {})
+describe(" ", () => {});
