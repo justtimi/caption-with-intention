@@ -1,6 +1,5 @@
 # `reducedMotionInterceptor`
-
-It is a blah blah blah
+The `reducedMotionInterceptor()` takes in the state 
 
 ---
 
