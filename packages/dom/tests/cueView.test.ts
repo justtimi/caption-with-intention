@@ -181,7 +181,7 @@ describe(" `updateVisibleWord()` — diffing range, backward seek", () => {
     const container = document.createElement("div");
     const cue = createCueView(container);
     cue.setCue(VALID_CUE_2);
-    cue.updateVisibleWord(7, false);
+    cue.updateVisibleWord(6, false);
     const spans = getSpans(container);
     for (let i = 0; i < 7; i++) {
       const span = spans[i];
@@ -211,9 +211,10 @@ describe(" `updateVisibleWord()` — out-of-bounds index", () => {
     const container = document.createElement("div");
     const cue = createCueView(container);
     cue.setCue(VALID_CUE_2);
-    const update = { updater: () => cue.updateVisibleWord(-5, false) };
-    const updateSpy = vi.spyOn(update, "updater");
-    expect(updateSpy).not.toHaveBeenCalled();
+    cue.updateVisibleWord(-5, false);
+    for (const span of getSpans(container)) {
+      expect(span.getAttribute("data-visible")).toBeNull();
+    }
     cue.updateVisibleWord(4, false);
     cue.updateVisibleWord(-7, false);
     const spans = getSpans(container);
@@ -225,10 +226,10 @@ describe(" `updateVisibleWord()` — out-of-bounds index", () => {
 });
 
 describe("`reduceMotion` — always read fresh, never cached", () => {
-  const container = document.createElement("div");
-  const cue = createCueView(container);
-  cue.setCue(VALID_CUE_2);
   it("Calling `updateVisibleWord(index, true)` sets `data-reduce-motion=true` on the affected spans.", () => {
+    const container = document.createElement("div");
+    const cue = createCueView(container);
+    cue.setCue(VALID_CUE_2);
     cue.updateVisibleWord(4, true);
     const spans = getSpans(container);
     for (let i = 0; i < 5; i++) {
@@ -236,6 +237,9 @@ describe("`reduceMotion` — always read fresh, never cached", () => {
     }
   });
   it("Calling `updateVisibleWord(index, false)` immediately after (same or new index) sets `data-reduce-motion=`false`` — proving the value isn't cached/sticky from the previous call.", () => {
+    const container = document.createElement("div");
+    const cue = createCueView(container);
+    cue.setCue(VALID_CUE_2);
     cue.updateVisibleWord(11, false);
     const spans = getSpans(container);
     for (let i = 5; i < spans.length; i++) {
@@ -243,12 +247,23 @@ describe("`reduceMotion` — always read fresh, never cached", () => {
     }
   });
   it("A call that touches zero spans (e.g., `min === max`, no range to update) still shouldn't error regardless of the `reduceMotion` value passed.", () => {
+    const container = document.createElement("div");
+    const cue = createCueView(container);
+    cue.setCue(VALID_CUE_2);
     cue.updateVisibleWord(4, true);
     expect(() => cue.updateVisibleWord(4, false)).not.toThrow();
   });
 });
 
 describe("`clear()` — idempotency and full reset", () => {
+  it("After `setCue()` populates spans, calling `clear()` results in an empty `rootElement` and `wordSpans.length === 0`.", () => {
+    const container = document.createElement("div");
+    const cue = createCueView(container);
+    cue.setCue(VALID_CUE_2);
+    cue.clear();
+    const spans = getSpans(container);
+    expect(spans.length).toBe(0);
+  });
   it("Calling `clear()` a second time immediately after (redundant call) doesn't throw and leaves the same empty state — proving idempotency directly, not just appears safe.", () => {
     const container = document.createElement("div");
     const cue = createCueView(container);
