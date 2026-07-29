@@ -1,6 +1,6 @@
 import { EnrichedCue } from "@cue-engine/core";
 import { createCueView } from "../src/renderer/CueView.js";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 const VALID_CUE_1: EnrichedCue = {
   id: "1",

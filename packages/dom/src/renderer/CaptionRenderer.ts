@@ -1,5 +1,5 @@
 import type { CaptionRenderState } from "@cue-engine/core";
-import { createCueNodePool } from "./CuePool.js";
+import { createCueNodePool } from "./CueNodePool.js";
 import type { CueView } from "./CueView.js";
 
 interface CaptionRenderer {
