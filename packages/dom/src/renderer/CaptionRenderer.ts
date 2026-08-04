@@ -6,7 +6,7 @@ interface CaptionRenderer {
   render: (state: CaptionRenderState) => void;
 }
 
-export const createCaptionRenderer = (
+export const createRenderer = (
   container: HTMLElement,
 ): CaptionRenderer => {
   const pool = createCueNodePool(container, 3);

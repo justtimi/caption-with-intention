@@ -1,8 +1,90 @@
-import { createCaptionRenderer } from "../src/renderer/CaptionRenderer.js";
+import { CaptionRenderState, EnrichedCue } from "@cue-engine/core";
+import { createRenderer } from "../src/renderer/CaptionRenderer.js";
 import { describe, it, expect } from "vitest";
 
+type ValidatedRenderState = Omit<CaptionRenderState, "activeCue"> & {
+  activeCue: EnrichedCue;
+};
+
+const RENDER_STATE_1: CaptionRenderState = {
+  cuePhase: "entering",
+  activeCue: {
+    id: "2",
+    startTime: 0,
+    endTime: 4500,
+    text: "Is this microphone actually recording right now?",
+    words: [
+      { word: "Is" },
+      { word: "this" },
+      { word: "microphone" },
+      { word: "actually" },
+      { word: "recording" },
+      { word: "right" },
+      { word: "now?" },
+    ],
+    intent: {
+      intensity: "whisper",
+      pace: "slow",
+      confidence: 0.35,
+      source: "text",
+    },
+  },
+  previousCue: {
+    id: "1",
+    startTime: 18000,
+    endTime: 27000,
+    text: "Thank you for watching, and don't forget to like and subscribe!",
+    words: [
+      { word: "Thank" },
+      { word: "you" },
+      { word: "for" },
+      { word: "watching," },
+      { word: "and" },
+      { word: "don't" },
+      { word: "forget" },
+      { word: "to" },
+      { word: "like" },
+      { word: "and" },
+      { word: "subscribe!" },
+    ],
+    intent: {
+      intensity: "loud",
+      pace: "normal",
+      confidence: 1,
+      source: "text",
+    },
+  },
+  reduceMotion: false,
+  visibleWordIndex: 3,
+};
+
+function createTestRenderState(
+  overrides?: Partial<CaptionRenderState>,
+): ValidatedRenderState {
+  const vary = {
+    ...RENDER_STATE_1,
+    ...overrides,
+  };
+  if (!vary.activeCue) throw new Error("activeCue cannot be null");
+  return { ...vary, activeCue: vary.activeCue };
+}
+
 describe("`entering` — basic activation", () => {
-  it("Calling `render({ cuePhase: entering, activeCue, ... })` results in the cue's words appearing as spans in `container` (i.e., `setCue` was actually called on some acquired view).", () => {});
+  it("Calling `render({ cuePhase: entering, activeCue, ... })` results in the cue's words appearing as spans in `container` (i.e., `setCue` was actually called on some acquired view).", () => {
+    const container = document.createElement("div");
+    const renderer = createRenderer(container);
+    const RENDER_STATE = createTestRenderState(RENDER_STATE_1);
+    renderer.render(RENDER_STATE);
+    const activeCue = RENDER_STATE.activeCue;
+    expect(container.querySelectorAll("span").length).toBe(
+      activeCue.words.length,
+    );
+    for (let i = 0; i < activeCue.words.length; i++) {
+      expect(container.querySelectorAll("span")[i].textContent).toBe(
+        activeCue.words[i].word,
+      );
+    }
+  });
 });
 
 describe(" `active` — word revealing", () => {
