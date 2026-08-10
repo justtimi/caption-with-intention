@@ -1,0 +1,17 @@
+export const urgency: Record<string, number> = {
+  now: 0.6,
+  hurry: 0.6,
+  quick: 0.6,
+  quickly: 0.6,
+  run: 0.6,
+  move: 0.6,
+  go: 0.6,
+  immediately: 0.6,
+  fast: 0.6,
+  rush: 0.6,
+  stop: 0.6,
+  wait: 0.35,
+  come: 0.6,
+  help: 0.6,
+  emergency: 0.6,
+};

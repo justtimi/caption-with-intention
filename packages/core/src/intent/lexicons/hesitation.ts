@@ -1,0 +1,17 @@
+export const hesitation: Record<string, number> = {
+  um: 0.65,
+  uh: 0.65,
+  erm: 0.65,
+  hmm: 0.65,
+  well: 0.65,
+  maybe: 0.65,
+  perhaps: 0.65,
+  actually: 0.65,
+  honestly: 0.65,
+  "i guess": 0.65,
+  "i think": 0.65,
+  "let me see": 0.65,
+  "hold on": 0.65,
+  "wait a second": 0.65,
+  "just a moment": 0.65,
+};

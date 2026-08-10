@@ -3,6 +3,7 @@ export { parseVTT } from "./parsers/parseVTT.js";
 export { stripVTTTags } from "./utils/stripVTTTags.js";
 export { stripSRTTags } from "./utils/stripSRTTags.js";
 export { enrichCues } from "./preparation/enrichCues.js";
+export { reducedMotionInterceptor } from "./middleware/reducedMotionInterceptor.js";
 export { TimelineController } from "./engine/TimelineController.js";
 
 export type { CaptionCue } from "./types/CaptionCue.js";
@@ -12,3 +13,4 @@ export type { ParserOptions } from "./types/ParserOptions.js";
 export type { VTTCueSettings } from "./types/VTTCueSettings.js";
 export type { EnrichedCue } from "./types/EnrichedCue.js";
 export type { CaptionRenderState } from "./types/CaptionRenderState.js";
+export type { BaseCaptionRenderState } from "./middleware/reducedMotionInterceptor.js";
