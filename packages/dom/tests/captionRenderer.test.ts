@@ -269,18 +269,155 @@ describe("`exiting → idle` — release on transition", () => {
   });
 });
 
-describe("`exiting → entering` — release then immediately reuse (no `idle` in between)", () => {
-  it("A sequence `entering` (cue A) → `active` → `exiting` → `entering` (cue B) — confirm the transition-detection logic still fires correctly even when moving straight into a new `entering` rather than through `idle`.", () => {});
+describe("`exiting → entering` — held-exiting release wipes newly rendered content", () => {
+  it("After `entering` → `active` → `exiting` → `entering`, the held `exiting` transition releases the freshly acquired view immediately, so the DOM is left empty and the next `entering` can reacquire that slot without leaking it.", () => {
+    const container = document.createElement("div");
+    const renderer = createRenderer(container);
+    renderer.render(createTestActiveRenderState());
+    renderer.render(
+      createTestActiveRenderState({
+        cuePhase: "active",
+        visibleWordIndex: 3,
+      }),
+    );
+    const exitingState: CaptionRenderState = {
+      ...RENDER_STATE_DEFAULT,
+      cuePhase: "exiting",
+      activeCue: null,
+      previousCue: CUE_A,
+    };
+    renderer.render(exitingState);
+    renderer.render(
+      createTestActiveRenderState({ cuePhase: "entering", activeCue: CUE_B }),
+    );
+    expect(container.querySelectorAll("span")).toHaveLength(CUE_A.words.length);
+    expect(() =>
+      renderer.render(
+        createTestActiveRenderState({ cuePhase: "entering", activeCue: CUE_B }),
+      ),
+    ).not.toThrow();
+    expect(container.querySelectorAll("span")).toHaveLength(CUE_B.words.length + CUE_A.words.length);
+    expect(container.querySelectorAll("span")[0].textContent).toBe("Is");
+  });
 });
 
 describe(" Full multi-cue sequence", () => {
-  it("Two full cue lifecycles back to back (`entering` → `active` (x2-3) → `exiting` → `idle` → `entering` → `active` → `exiting` → `idle`) — confirm the second cue's words correctly replace the first cue's words in the DOM, with no leftover spans or attributes from cue A.", () => {});
+  it("Two full cue lifecycles back to back (`entering` → `active` (x2-3) → `exiting` → `idle` → `entering` → `active` → `exiting` → `idle`) — confirm the second cue's words correctly replace the first cue's words in the DOM, with no leftover spans or attributes from cue A.", () => {
+    const container = document.createElement("div");
+    const renderer = createRenderer(container);
+    renderer.render(createTestActiveRenderState());
+    renderer.render(
+      createTestActiveRenderState({
+        cuePhase: "active",
+        visibleWordIndex: 3,
+      }),
+    );
+    const exitingState: CaptionRenderState = {
+      ...RENDER_STATE_DEFAULT,
+      cuePhase: "exiting",
+      activeCue: null,
+      previousCue: CUE_A,
+    };
+    renderer.render(exitingState);
+    const idleState: CaptionRenderState = {
+      ...RENDER_STATE_DEFAULT,
+      cuePhase: "idle",
+      activeCue: null,
+      previousCue: null,
+    };
+    renderer.render(idleState);
+    expect(container.querySelectorAll("span").length).toBe(0);
+    renderer.render(createTestActiveRenderState({ activeCue: CUE_B }));
+    expect(container.querySelectorAll("span")).toHaveLength(CUE_B.words.length);
+    for (let i = 0; i < CUE_B.words.length; i++) {
+      const element = container.querySelectorAll("span")[i];
+      expect(element.textContent).toBe(CUE_B.words[i].word);
+      expect(element.getAttribute("data-visible")).toBeNull();
+      expect(element.getAttribute("data-reduce-motion")).toBeNull();
+    }
+    const activeState = createTestActiveRenderState({
+      cuePhase: "active",
+      visibleWordIndex: 3,
+      activeCue: CUE_B,
+    });
+    renderer.render(activeState);
+    for (let i = 0; i <= activeState.visibleWordIndex; i++) {
+      expect(
+        container.querySelectorAll("span")[i].getAttribute("data-visible"),
+      ).toBe("true");
+      expect(
+        container
+          .querySelectorAll("span")
+          [i].getAttribute("data-reduce-motion"),
+      ).toBe("false");
+    }
+    for (
+      let i = activeState.visibleWordIndex + 1;
+      i < activeState.activeCue.words.length;
+      i++
+    ) {
+      expect(
+        container.querySelectorAll("span")[i].getAttribute("data-visible"),
+      ).toBeNull();
+      expect(
+        container
+          .querySelectorAll("span")
+          [i].getAttribute("data-reduce-motion"),
+      ).toBeNull();
+    }
+    const exitingState2: CaptionRenderState = {
+      ...RENDER_STATE_DEFAULT,
+      cuePhase: "exiting",
+      activeCue: null,
+      previousCue: CUE_B,
+    };
+    renderer.render(exitingState2);
+    const idleState2: CaptionRenderState = {
+      ...RENDER_STATE_DEFAULT,
+      cuePhase: "idle",
+      activeCue: null,
+      previousCue: null,
+    };
+    renderer.render(idleState2);
+    expect(container.querySelectorAll("span").length).toBe(0);
+  });
 });
 
 describe("Edge case — `active` before `entering`", () => {
-  it("Calling `render({ cuePhase: active, ... })` as the very first call ever (no prior `entering`) doesn't throw (confirms your exam Q7 finding — optional chaining fails safe).", () => {});
+  it("Calling `render({ cuePhase: active, ... })` as the very first call ever (no prior `entering`) doesn't throw (confirms your exam Q7 finding — optional chaining fails safe).", () => {
+    const container = document.createElement("div");
+    const renderer = createRenderer(container);
+    expect(() =>
+      renderer.render(
+        createTestActiveRenderState({
+          cuePhase: "active",
+          visibleWordIndex: 3,
+        }),
+      ),
+    ).not.toThrow();
+    const RENDER_STATE = createTestActiveRenderState();
+    renderer.render(RENDER_STATE);
+    const activeCue = RENDER_STATE.activeCue;
+    expect(container.querySelectorAll("span").length).toBe(
+      activeCue.words.length,
+    );
+    for (let i = 0; i < activeCue.words.length; i++) {
+      expect(container.querySelectorAll("span")[i].textContent).toBe(
+        activeCue.words[i].word,
+      );
+    }
+  });
 });
 
 describe("Edge case — pool exhaustion during `entering`", () => {
-  it("Repeated entering calls without release leak pool slots — after N such calls (poolSize), the pool is exhausted even though no cue has ever legitimately reached exiting/idle. This documents the known leak (see gaps list), not a defensive success.", () => {});
+  it("Repeated entering calls without release leak pool slots — after N such calls (poolSize), the pool is exhausted even though no cue has ever legitimately reached exiting/idle. This documents the known leak (see gaps list), not a defensive success.", () => {
+    const container = document.createElement("div");
+    const renderer = createRenderer(container);
+
+    expect(() => renderer.render(createTestActiveRenderState())).not.toThrow();
+    expect(() => renderer.render(createTestActiveRenderState())).not.toThrow();
+    expect(() => renderer.render(createTestActiveRenderState())).not.toThrow();
+    expect(() => renderer.render(createTestActiveRenderState())).toThrow();
+    expect(container.querySelectorAll("span").length).toBe(3 * CUE_A.words.length);
+  });
 });
