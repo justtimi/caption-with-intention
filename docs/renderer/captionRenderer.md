@@ -1,6 +1,6 @@
-# `createCueView`
+# `createRenderer`
 
-Creates a `CueView`: a small DOM controller that renders a single caption cue as one `<span>` per word, and exposes an imperative API for marking words visible up to a given index (for word-by-word highlighting).
+Creates a `CaptionRenderer`:
 
 ---
 
@@ -8,11 +8,9 @@ Creates a `CueView`: a small DOM controller that renders a single caption cue as
 
 - [Quick Start](#quick-start)
 - [API Reference](#api-reference)
-  - [`createCueView`](#createcueview-1)
-  - [`CueView`](#cueview)
-    - [`setCue`](#setcue)
-    - [`updateVisibleWord`](#updatevisibleword)
-    - [`clear`](#clear)
+  - [`createRenderer`](#createrenderer-1)
+  - [`CaptionRenderer`](#captionrenderer)
+    - [`render`](#render)
 - [Word Visibility Model](#word-visibility-model)
 - [DOM Output](#dom-output)
 - [Contributor Notes](#contributor-notes)
@@ -22,13 +20,12 @@ Creates a `CueView`: a small DOM controller that renders a single caption cue as
 ## Quick Start
 
 ```ts
-const view = createCueView(document.getElementById("captions")!);
-
-view.setCue(cue); // cue: EnrichedCue
-view.updateVisibleWord(0, false);
-view.updateVisibleWord(1, false);
-// ...
-view.clear();
+import {TimelineController} from "@cue-engine/core"
+const container = document.createElement("div");
+const video = document.createElement("video");
+const renderer = createRenderer(container);
+const controller = new TimelineController(video, cues, renderer.render);
+controller.start()
 ```
 
 ---
@@ -59,13 +56,11 @@ Creates a `CueView` bound to `container`.
 
 ---
 
-### `CueView`
+### `CaptionRenderer`
 
 ```ts
-interface CueView {
-  setCue(cue: EnrichedCue): void;
-  updateVisibleWord(index: number, reduceMotion: boolean): void;
-  clear(): void;
+interface CaptionRenderer {
+  render: (state: CaptionRenderState) => void;
 }
 ```
 

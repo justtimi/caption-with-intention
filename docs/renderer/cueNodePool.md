@@ -1,6 +1,6 @@
-# `createCueView`
+# `createCueNodePool`
 
-Creates a `CueView`: a small DOM controller that renders a single caption cue as one `<span>` per word, and exposes an imperative API for marking words visible up to a given index (for word-by-word highlighting).
+Creates a `CueNodePool`: a factory function for the DOM controller. It is used to create a pool to acquire and release the DOM elements to maximize performance.
 
 ---
 
@@ -8,11 +8,10 @@ Creates a `CueView`: a small DOM controller that renders a single caption cue as
 
 - [Quick Start](#quick-start)
 - [API Reference](#api-reference)
-  - [`createCueView`](#createcueview-1)
-  - [`CueView`](#cueview)
-    - [`setCue`](#setcue)
-    - [`updateVisibleWord`](#updatevisibleword)
-    - [`clear`](#clear)
+  - [`createCueNodePool`](#createcuenodepool-1)
+  - [`CueNodePool`](#cuenodepool)
+    - [`acquire`](#acquire)
+    - [`release`](#release)
 - [Word Visibility Model](#word-visibility-model)
 - [DOM Output](#dom-output)
 - [Contributor Notes](#contributor-notes)
@@ -22,64 +21,64 @@ Creates a `CueView`: a small DOM controller that renders a single caption cue as
 ## Quick Start
 
 ```ts
-const view = createCueView(document.getElementById("captions")!);
-
-view.setCue(cue); // cue: EnrichedCue
+const container = document.createElement("div");
+const pool = createCueView(container, 2);
+const view = pool.acquire();
+view.setCue(cue);
 view.updateVisibleWord(0, false);
 view.updateVisibleWord(1, false);
-// ...
 view.clear();
+pool.release(view);
 ```
 
 ---
 
 ## API Reference
 
-### `createCueView`
+### `createCueNodePool`
 
 ```ts
-function createCueView(container: HTMLElement): CueView;
+function createCueNodePool = (
+  container: HTMLElement,
+  poolSize = 2,
+): CueNodePool;
 ```
 
-Creates a `CueView` bound to `container`.
+Creates a `CueNodePool` bound to `container` and has a configurable `poolSize`.
 
 **Parameters**
 
-| Parameter   | Type          | Required | Description                                      |
-| ----------- | ------------- | -------- | ------------------------------------------------ |
-| `container` | `HTMLElement` | Yes      | The element the cue view will render itself into |
+| Parameter   | Type          | Required | Description                                                                                       |
+| ----------- | ------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `container` | `HTMLElement` | Yes      | The element the cue view will render itself into                                                  |
+| `poolSize`  | `number`      | No       | The number of views that are populated into the view upon initialization. The default is set to 2 |
 
-**Returns** [`CueView`](#cueview)
+**Returns** [`CueNodePool`](#cuenodepool)
 
 **Behaviour**
 
-- Creates a single root `<div>` and appends it to `container` immediately, once, on creation
-- The root `<div>` stays in `container` for the lifetime of the returned `CueView`, `clear()` empties it but never removes it from `container`
-- Word `<span>` elements are recreated on every `setCue()` call; nothing is reused across cues
+- Creates an empty array of `views` upon creation.
+- The array is then populated with an amount of views equal to the value of `poolSize`.
+- An empty set is created upon initialization to record the views that are in use.
 
 ---
 
-### `CueView`
+### `CueNodePool`
 
 ```ts
-interface CueView {
-  setCue(cue: EnrichedCue): void;
-  updateVisibleWord(index: number, reduceMotion: boolean): void;
-  clear(): void;
+interface CueNodePool {
+  acquire: () => CueView;
+  release: (view: CueView) => void;
 }
 ```
 
-#### `setCue`
+#### `acquire`
 
 ```ts
-setCue(cue: EnrichedCue): void;
+  acquire(): CueView;
 ```
 
 Renders a new cue, replacing whatever was previously shown.
-
-| Parameter | Type          | Description                                                                                                   |
-| --------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
-| `cue`     | `EnrichedCue` | The cue to render. Only `cue.words` is read; each word token's `word` string becomes the text of one `<span>` |
 
 **Behaviour**
 
@@ -89,18 +88,17 @@ Renders a new cue, replacing whatever was previously shown.
 - Does not itself mark any word visible, call `updateVisibleWord` afterward to reveal words
 - For cues with no words, no spans are created (existing state is still cleared)
 
-#### `updateVisibleWord`
+#### `release`
 
 ```ts
-updateVisibleWord(index: number, reduceMotion: boolean): void;
+  release(view: CueView): void;
 ```
 
 Advances or rewinds which words are marked visible, up to and including `index`.
 
-| Parameter      | Type      | Description                                                                                                    |
-| -------------- | --------- | -------------------------------------------------------------------------------------------------------------- |
-| `index`        | `number`  | The index (into the current cue's words) that should now be the last visible word. `-1` means no words visible |
-| `reduceMotion` | `boolean` | Written onto every word touched by this call as `data-reduce-motion`                                           |
+| Parameter | Type      | Description                                                                                                 |
+| --------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| `view`    | `CueView` | The particular cue view that should be made available to be acquired eventually. The function is idempotent |
 
 **Behaviour**
 
@@ -109,22 +107,6 @@ Advances or rewinds which words are marked visible, up to and including `index`.
 - Calling with the same `index` as the previous call is a no-op; no spans are touched and no attributes change
 - If called before `setCue` (no words rendered), it updates internal state but has no visible effect
 - `reduceMotion` is only applied to spans touched by _this_ call. It is not retroactively applied to spans set by earlier calls with a different `reduceMotion` value
-
-#### `clear`
-
-```ts
-clear(): void;
-```
-
-Removes all rendered words and resets visibility state.
-
-**Behaviour**
-
-- Removes all child spans from the root element
-- Empties the internal word span list
-- Resets the visible-word index back to `-1`
-- Does not remove the root `<div>` from `container`
-- Calling clear() multiple times in a row is safe and produces no errors
 
 ---
 
