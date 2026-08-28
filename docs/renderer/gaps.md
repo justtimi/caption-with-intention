@@ -4,6 +4,28 @@
 
 ## DOM
 
+## Currently Known Open Gaps
+
+### Original public API design
+
+1. `.stop()` has no confirmed behavior or implementation.
+2. Mid-session cue updates are undesigned.
+3. Cleanup/destroy has no way to fully tear down a `CaptionRenderer`.
+4. Input validation is absent for constructor inputs, cue well-formedness, and pool-size sanity.
+5. There is no consistent general error-handling policy across layers.
+
+### CaptionRenderer implementation and integration
+
+6. `active` before `entering` silently skips `updateVisibleWord` when `activeView` is `null`.
+7. Errors thrown by `pool.acquire()` are not caught by `render()`.
+8. `.start()` is not designed: nothing yet connects `render(state)` to a video `timeupdate` or `requestAnimationFrame` loop, and nothing yet invokes `TimelineController` to produce ticks.
+9. `@cue-engine/dom` has no unified public `index.ts` export for its internal renderer modules.
+10. `TimelineController` may compute an `exiting` frame's `visibleWordIndex` while `activeCue` is `null`; because `CaptionRenderer` only calls `updateVisibleWord` inside `if (activeCue)`, that value is never consumed. Confirm whether all words are guaranteed to be revealed before exit, including seeks and cues whose display window ends before playback catches up.
+
+### Deferred by design
+
+11. `src` file-path support for raw SRT/VTT loading is explicitly deferred to Phase 2.
+
 ### Title: exiting to entering held-release transition bug
 
 **Component**: CaptionRenderer
@@ -15,7 +37,7 @@
 3. This wipes the new cue's freshly rendered spans in the same tick, and the original cue's view is never released, so it stays permanently stuck in the DOM, orphaned.
    **Verified via**: DOM inspection after the transition shows the old cue's words still visible, and the pool loses one slot per occurrence.
    **Correct behaviour**: When it transitions from exiting to entering, the original cue's view should be cleared and released before `activeView` is set to the new cue's view.
-   **Status**: Documented to be fixed in testing week from writing captionRenderer tests.
+   **Status**: Documented to be fixed in testing week from writing CaptionRenderer tests.
 
 ### Title: entering leak during repeated entering transitions
 
