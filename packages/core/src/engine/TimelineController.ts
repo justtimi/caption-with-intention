@@ -14,9 +14,13 @@ interface TimelineInterface {
   stop: () => void;
 }
 
+interface TimeSource {
+  currentTime: number;
+}
+
 export class TimelineController implements TimelineInterface {
   constructor(
-    private video: HTMLVideoElement,
+    private timeSource: TimeSource,
     private cues: EnrichedCue[],
     private callback: (state: CaptionRenderState) => void,
   ) {}
@@ -27,7 +31,7 @@ export class TimelineController implements TimelineInterface {
   }
 
   tick(): void {
-    const currentTime = this.video.currentTime;
+    const currentTime = this.timeSource.currentTime;
     const activeCue = binarySearch(this.cues, currentTime);
     let cuePhase: CuePhase = "idle";
     if (activeCue && !this.previousCue) {

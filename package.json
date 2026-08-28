@@ -7,6 +7,7 @@
   "main": "index.js",
   "scripts": {
     "test": "pnpm --filter \"./packages/**\" test",
+    "test:coverage": "pnpm --filter \"./packages/**\" test:coverage",
     "build:engine": "pnpm --filter @cue-engine/core build",
     "dev:app": "pnpm --filter demo-app dev",
     "typecheck": "tsc --noEmit",

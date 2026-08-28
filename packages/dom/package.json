@@ -1,7 +1,7 @@
 {
-  "name": "@cue-engine/core",
+  "name": "@cue-engine/dom",
   "version": "0.1.0",
-  "description": "",
+  "description": "Browser DOM renderer for Cue Engine.",
   "type": "module",
   "exports": {
     ".": {
@@ -22,15 +22,20 @@
   },
   "keywords": [
     "captions",
-    "srt",
-    "parser",
+    "subtitles",
+    "renderer",
     "video",
-    "timeline"
+    "dom",
+    "accessibility"
   ],
   "author": "AFOLAYAN Timileyin Israel",
   "license": "MIT",
+  "dependencies": {
+    "@cue-engine/core": "workspace:*"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "4.1.9",
+    "jsdom": "^29.1.1",
     "tsdown": "^0.22.3",
     "typescript": "6.0.3",
     "vitest": "^4.1.9"

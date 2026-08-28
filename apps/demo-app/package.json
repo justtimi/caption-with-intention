@@ -9,9 +9,10 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
-  "@cue-engine/core": "workspace:*"
-}
+    "@cue-engine/core": "workspace:*",
+    "@cue-engine/dom": "workspace:*"
+  }
 }
